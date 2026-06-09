@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,7 +45,7 @@ def load_task_module(task_name: str, task: Task) -> ModuleType:
     return module
 
 
-def run_task(task_name: str) -> None:
+def run_task(task_name: str, task_args: list[str] | None = None) -> None:
     task = TASKS[task_name]
     module = load_task_module(task_name, task)
     task_main = getattr(module, "main", None)
@@ -52,7 +53,16 @@ def run_task(task_name: str) -> None:
     if not callable(task_main):
         raise AttributeError(f"{task.path} does not expose a callable main()")
 
-    task_main()
+    task_args = task_args or []
+    main_params = inspect.signature(task_main).parameters
+
+    if task_args and not main_params:
+        raise ValueError(f"{task_name} does not accept task arguments: {task_args}")
+
+    if main_params:
+        task_main(task_args)
+    else:
+        task_main()
 
 
 def print_tasks() -> None:
@@ -64,6 +74,7 @@ def print_tasks() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified entrypoint for OTTO recommendation experiments.")
     parser.add_argument("task", nargs="?", choices=sorted(TASKS), help="Task to run.")
+    parser.add_argument("task_args", nargs=argparse.REMAINDER, help="Arguments passed to the selected task.")
     parser.add_argument("--list", action="store_true", help="List available tasks.")
     return parser.parse_args()
 
@@ -75,7 +86,7 @@ def main() -> None:
         print_tasks()
         return
 
-    run_task(args.task)
+    run_task(args.task, args.task_args)
 
 
 if __name__ == "__main__":
