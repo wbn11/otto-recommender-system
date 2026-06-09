@@ -65,5 +65,3 @@ def main():
     print(f"Train events: {len(train_events):,}")
     print(f"Valid labels: {len(valid_labels):,}")
 
-if __name__ == "__main__":
-    main()

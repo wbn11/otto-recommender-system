@@ -66,5 +66,3 @@ def main():
     print("Covisitation-based recommendations saved to covisitation_predictions.csv")
 
 
-if __name__ == "__main__":
-    main()

@@ -225,5 +225,3 @@ def main():
     plot_behavior_ratio(behavior_ratio)
 
 
-if __name__ == "__main__":
-    main()

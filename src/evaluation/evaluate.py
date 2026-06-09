@@ -33,5 +33,3 @@ def main():
     print(f"Evaluating {PRED_FILE}...")
     print(f"Recall@20: {recall:.4f}")
 
-if __name__ == "__main__":
-    main()

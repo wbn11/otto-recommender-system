@@ -139,5 +139,3 @@ def main():
         pickle.dump(item2id,f)
     print("Model saved.")
 
-if __name__ == "__main__":
-    main()

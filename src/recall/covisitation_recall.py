@@ -35,5 +35,3 @@ def main():
 
     pd.DataFrame(predictions).to_csv(ROOT / "outputs" /"covisitation_limit30_predictions.csv",index=False)
     print("Covisitation-based recommendations saved to covisitation_predictions.csv")
-if __name__ == "__main__":
-    main()

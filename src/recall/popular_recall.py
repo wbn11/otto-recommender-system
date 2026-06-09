@@ -16,5 +16,3 @@ def main():
     predictions.to_csv(ROOT / "outputs" / "popular_predictions.csv",index=False)
 
 
-if __name__ == "__main__":
-    main()

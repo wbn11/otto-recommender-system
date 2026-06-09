@@ -36,5 +36,3 @@ def main():
     print("Fusion predictions saved to fusion_predictions.csv")
         
 
-if __name__ == "__main__":
-    main()

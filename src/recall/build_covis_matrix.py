@@ -30,5 +30,3 @@ def main():
 
     print(f"saved to {output_path}")
 
-if __name__ == "__main__":
-    main()

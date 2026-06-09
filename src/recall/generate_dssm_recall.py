@@ -86,6 +86,3 @@ def main():
     pred_df = pd.DataFrame(predictions)
     pred_df.to_csv(ROOT / "outputs" / "dssm_predictions.csv",index=False)
     print("DSSM predictions saved.")
-
-if __name__ == "__main__":
-    main()
