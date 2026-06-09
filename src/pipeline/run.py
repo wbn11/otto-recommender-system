@@ -19,6 +19,10 @@ SRC_DIR = Path(__file__).resolve().parents[1]
 TASKS = {
     "eda": Task("data/eda.py", "Run exploratory data analysis."),
     "build-validation": Task("data/build_validation.py", "Build leave-one-out validation files."),
+    "build-multi-target-validation": Task(
+        "data/build_multi_target_validation.py",
+        "Build multi-target validation files.",
+    ),
     "build-dssm-dataset": Task("data/build_dssm_dataset.py", "Inspect DSSM training pairs."),
     "popular-recall": Task("recall/popular_recall.py", "Generate popular item recall."),
     "build-covis-matrix": Task("recall/build_covis_matrix.py", "Build co-visitation top-k matrix."),
@@ -67,8 +71,9 @@ def run_task(task_name: str, task_args: list[str] | None = None) -> None:
 
 def print_tasks() -> None:
     print("Available tasks:")
+    task_name_width = max(len(task_name) for task_name in TASKS)
     for task_name in sorted(TASKS):
-        print(f"  {task_name:<22} {TASKS[task_name].description}")
+        print(f"  {task_name:<{task_name_width}} {TASKS[task_name].description}")
 
 
 def parse_args() -> argparse.Namespace:
