@@ -17,7 +17,7 @@ def main():
 
     train_events = pd.read_csv(ROOT / "outputs" / "train_events.csv")
     valid_labels = pd.read_csv(ROOT / "outputs" / "valid_labels.csv")
-    with open(ROOT / "outputs" / "covis_topk_limit30.pkl","rb") as f:
+    with open(ROOT / "outputs" / "covis_topk.pkl","rb") as f:
         covis_topk = pickle.load(f)
 
     session_items = (train_events.groupby("session")["aid"].apply(list).to_dict())
@@ -33,5 +33,5 @@ def main():
             "predictions":" ".join(map(str, recs))
         })
 
-    pd.DataFrame(predictions).to_csv(ROOT / "outputs" /"covisitation_limit30_predictions.csv",index=False)
+    pd.DataFrame(predictions).to_csv(ROOT / "outputs" /"covisitation_predictions.csv",index=False)
     print("Covisitation-based recommendations saved to covisitation_predictions.csv")

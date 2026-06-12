@@ -12,7 +12,7 @@ RECALL_SOURCES = {
         "weight": 1.0,
     },
     "covisitation": {
-        "file": "covisitation_limit30_predictions.csv",
+        "file": "covisitation_predictions.csv",
         "weight": 2.0,
     },
     "dssm": {

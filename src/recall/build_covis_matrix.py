@@ -24,7 +24,7 @@ def main():
     covis_topk = {}
     for aid, neighbors in tqdm(covis.items()):
         covis_topk[aid] = sorted(neighbors.items(),key=lambda x: x[1],reverse=True)[:20]
-    output_path = (ROOT / "outputs" / "covis_topk_limit30.pkl")
+    output_path = (ROOT / "outputs" / "covis_topk.pkl")
     with open(output_path, "wb") as f:
         pickle.dump(covis_topk, f)
 
