@@ -25,6 +25,10 @@ TASKS = {
     ),
     "build-dssm-dataset": Task("data/build_dssm_dataset.py", "Inspect DSSM training pairs."),
     "popular-recall": Task("recall/popular_recall.py", "Generate popular item recall."),
+    "popular-recall-multi-target": Task(
+        "recall/popular_recall_multi_target.py",
+        "Generate multi-target popular item recall.",
+    ),
     "build-covis-matrix": Task("recall/build_covis_matrix.py", "Build co-visitation top-k matrix."),
     "covisitation": Task("recall/covisitation.py", "Build full co-visitation recall."),
     "covisitation-recall": Task("recall/covisitation_recall.py", "Generate co-visitation recall from saved matrix."),
@@ -32,6 +36,7 @@ TASKS = {
     "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
     "evaluate": Task("evaluation/evaluate.py", "Evaluate recall predictions."),
+    "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
     "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
 }
 
