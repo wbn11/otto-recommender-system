@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 class DSSMDataset(Dataset):
     def __init__(self, pairs):
