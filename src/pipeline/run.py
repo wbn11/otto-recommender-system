@@ -30,8 +30,16 @@ TASKS = {
         "Generate multi-target popular item recall.",
     ),
     "build-covis-matrix": Task("recall/build_covis_matrix.py", "Build co-visitation top-k matrix."),
+    "build-covis-matrix-multi-target": Task(
+        "recall/build_covis_matrix_multi_target.py",
+        "Build multi-target co-visitation top-k matrix.",
+    ),
     "covisitation": Task("recall/covisitation.py", "Build full co-visitation recall."),
     "covisitation-recall": Task("recall/covisitation_recall.py", "Generate co-visitation recall from saved matrix."),
+    "covisitation-recall-multi-target": Task(
+        "recall/covisitation_recall_multi_target.py",
+        "Generate multi-target co-visitation recall from saved matrix.",
+    ),
     "dssm-recall": Task("recall/generate_dssm_recall.py", "Generate DSSM recall predictions."),
     "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
