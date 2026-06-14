@@ -1,16 +1,21 @@
 import argparse
 import pickle
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.config import load_config
 
-DEFAULT_TRAIN_FILE = "multi_target_train_events.csv"
+
+_CFG = load_config()
+DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_covis_topk.pkl"
-DEFAULT_SESSION_LIMIT = 30
-DEFAULT_TOP_K = 20
+DEFAULT_SESSION_LIMIT = _CFG.get("covis", {}).get("session_limit", 30)
+DEFAULT_TOP_K = _CFG.get("covis", {}).get("top_k", 20)
 
 
 def parse_args(argv=None):
@@ -72,7 +77,7 @@ def main(argv=None):
     if not train_path.exists():
         raise FileNotFoundError(f"Train events file not found: {train_path}")
 
-    train_events = pd.read_csv(train_path)
+    train_events = pd.read_parquet(train_path)
     covis_topk = build_covis_topk(train_events, args.session_limit, args.top_k)
 
     output_path = output_dir / args.output_file

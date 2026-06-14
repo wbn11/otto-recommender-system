@@ -121,6 +121,7 @@
 ---
 
 ## 6. P0 — 工程地基(随手可做的高性价比项)
+> 状态:多目标主链路已完成(polars/parquet + configs + 命名规范);单目标链路待 P1。
 
 - **polars + parquet** 替代 pandas + CSV 处理 11GB 原始数据(`expand_events` 用 `iterrows` 很慢),预处理可从几十分钟降到几分钟。
 - 新建 `configs/` 统一管理超参(现全硬编码,做消融很痛苦)。

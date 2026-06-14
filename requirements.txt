@@ -2,4 +2,7 @@ pandas
 matplotlib
 torch
 tqdm
+polars
+pyarrow
+pyyaml
 

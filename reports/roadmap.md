@@ -3,10 +3,11 @@
 > 配套设计文档:[architecture.md](architecture.md)
 > 指标:加权 Recall@20(clicks 0.10 / carts 0.30 / orders 0.60)
 > 硬件:RTX 4060 Laptop(8GB)
+> 运行环境:conda env `OTTO`(Python 3.10,torch 2.12+cu126),用 `D:\anaconda3\envs\OTTO\python.exe` 跑
 
 ## 总体进度
 
-- [ ] **P0** 工程地基(提速 + 配置)
+- [x] **P0** 工程地基(提速 + 配置)
 - [ ] **P1** DSSM 多目标改造 + 多源融合
 - [ ] **P2** TIGER 生成式检索(核心亮点)
 - [ ] **P3** LightGBM 精排(补全两阶段,可选)
@@ -14,7 +15,7 @@
 
 | 阶段 | 预计 | 依赖 | 状态 |
 |---|---|---|---|
-| P0 | 1–2天 | 无 | ⬜ 未开始 |
+| P0 | 1–2天 | 无 | ✅ 完成 |
 | P1 | 3–5天 | P0(可选) | ⬜ 未开始 |
 | P2 | 1.5–2周 | P1 | ⬜ 未开始 |
 | P3 | ~1周 | P1 | ⬜ 未开始 |
@@ -32,16 +33,18 @@
 
 ---
 
-## P0 · 工程地基
-> 目标:消除 I/O 瓶颈、统一超参管理。不阻塞主线,赶时间可跳过。
+## P0 · 工程地基 ✅(多目标主链路)
+> 目标:消除 I/O 瓶颈、统一超参管理。已完成多目标主链路;单目标(leave-one-out)旧链路暂留 CSV,待 P1 重做 DSSM 时一并迁移。
 
-- [ ] ① `expand_events` 的 `iterrows` → polars 向量化 + parquet(`src/data/build_multi_target_validation.py`)
-- [ ] ① 新增 polars 依赖到 `requirements.txt`
-- [ ] ① 下游脚本改读 parquet
-- [ ] ② 新建 `configs/default.yaml`,抽出硬编码超参(emb_dim、top_k、融合权重、history_ratio 等)
-- [ ] ③ 统一产物命名规范(单目标 vs 多目标不互相覆盖)
+- [x] ① `expand_events` 的 `iterrows` → polars `scan_ndjson` 向量化展开 + 写 parquet(`src/data/build_multi_target_validation.py`)
+- [x] ① 新增 `polars` / `pyarrow` / `pyyaml` 依赖到 `requirements.txt`
+- [x] ① 多目标下游脚本改读 parquet(popular / covis build / covis recall / evaluate)
+- [x] ② 新建 `configs/default.yaml` + `src/utils/config.py` 加载器,接入多目标 build / covis / evaluate 默认值
+- [x] ③ 命名规范:中间表 `.parquet`、预测 `.csv`、矩阵 `.pkl`、多目标加 `multi_target_` 前缀
+- [ ] (留待 P1)单目标 leave-one-out 链路迁移 parquet
 
-**产出**:`*.parquet`、`configs/default.yaml`
+**产出**:`outputs/multi_target_*.parquet`、`configs/default.yaml`、`src/utils/config.py`
+**验证**:`--nrows 2000` 隔离冒烟测试,build→popular→evaluate→covis→evaluate 全链路通过(covis 加权分 0.34 ≫ popular 0.005)
 
 ---
 

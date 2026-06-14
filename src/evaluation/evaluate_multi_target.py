@@ -1,18 +1,23 @@
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.config import load_config
 
+
+_CFG = load_config()
 DEFAULT_PRED_FILE = "multi_target_popular_predictions.csv"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.csv"
-DEFAULT_K = 20
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_K = _CFG.get("eval", {}).get("k", 20)
 
-TYPE_WEIGHTS = {
+TYPE_WEIGHTS = _CFG.get("eval", {}).get("type_weights", {
     "clicks": 0.10,
     "carts": 0.30,
     "orders": 0.60,
-}
+})
 
 
 def parse_args(argv=None):
@@ -57,7 +62,7 @@ def load_inputs(output_dir, labels_file, pred_file):
     if not predictions_path.exists():
         raise FileNotFoundError(f"Prediction file not found: {predictions_path}")
 
-    labels = pd.read_csv(labels_path)
+    labels = pd.read_parquet(labels_path)
     predictions = pd.read_csv(predictions_path)
 
     required_label_columns = {"session", "type", "labels"}

@@ -1,14 +1,20 @@
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.config import load_config
 
 
+_CFG = load_config()
 EVENT_TYPES = ("clicks", "carts", "orders")
-DEFAULT_NROWS = 100000
-DEFAULT_HISTORY_RATIO = 0.8
-DEFAULT_TRAIN_FILE = "multi_target_train_events.csv"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.csv"
+DEFAULT_NROWS = _CFG.get("data", {}).get("nrows", 100000)
+DEFAULT_HISTORY_RATIO = _CFG.get("data", {}).get("history_ratio", 0.8)
+DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 
 
 def parse_args(argv=None):
@@ -38,24 +44,18 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def load_data(data_file, nrows=None):
-    return pd.read_json(data_file, lines=True, nrows=nrows)
-
-
-def expand_events(df):
-    rows = []
-    for _, row in df.iterrows():
-        session_id = row["session"]
-
-        for event in row["events"]:
-            rows.append({
-                "session": session_id,
-                "aid": event["aid"],
-                "ts": event["ts"],
-                "type": event["type"],
-            })
-
-    return pd.DataFrame(rows)
+def load_events(data_file, nrows=None):
+    # polars 向量化展开 events 列(替代逐行 iterrows),再交给 pandas 做后续切分
+    lf = pl.scan_ndjson(data_file)
+    if nrows is not None:
+        lf = lf.head(nrows)
+    events = (
+        lf.explode("events")
+        .unnest("events")
+        .select(["session", "aid", "ts", "type"])
+        .collect()
+    )
+    return events.to_pandas()
 
 
 def split_history_future(group, history_ratio):
@@ -136,14 +136,13 @@ def main(argv=None):
     output_dir = root / "outputs"
     output_dir.mkdir(exist_ok=True)
 
-    df = load_data(data_file, nrows=args.nrows)
-    events_df = expand_events(df)
+    events_df = load_events(data_file, nrows=args.nrows)
     train_events, valid_labels, skipped_sessions = build_multi_target_validation(
         events_df,
         args.history_ratio,
     )
 
-    train_events.to_csv(output_dir / args.train_file, index=False)
-    valid_labels.to_csv(output_dir / args.labels_file, index=False)
+    train_events.to_parquet(output_dir / args.train_file, index=False)
+    valid_labels.to_parquet(output_dir / args.labels_file, index=False)
 
     print_summary(train_events, valid_labels, skipped_sessions)

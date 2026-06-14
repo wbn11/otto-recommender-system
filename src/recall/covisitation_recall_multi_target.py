@@ -7,8 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 
 
-DEFAULT_TRAIN_FILE = "multi_target_train_events.csv"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.csv"
+DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_COVIS_FILE = "multi_target_covis_topk.pkl"
 DEFAULT_OUTPUT_FILE = "multi_target_covisitation_predictions.csv"
 DEFAULT_K = 20
@@ -69,8 +69,8 @@ def load_inputs(output_dir, train_file, labels_file, covis_file):
     if not covis_path.exists():
         raise FileNotFoundError(f"Co-visitation file not found: {covis_path}")
 
-    train_events = pd.read_csv(train_path)
-    valid_labels = pd.read_csv(labels_path)
+    train_events = pd.read_parquet(train_path)
+    valid_labels = pd.read_parquet(labels_path)
 
     with open(covis_path, "rb") as f:
         covis_topk = pickle.load(f)

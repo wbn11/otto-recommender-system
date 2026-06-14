@@ -5,8 +5,8 @@ import pandas as pd
 
 
 EVENT_TYPES = ("clicks", "carts", "orders")
-DEFAULT_TRAIN_FILE = "multi_target_train_events.csv"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.csv"
+DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_popular_predictions.csv"
 DEFAULT_K = 20
 
@@ -46,8 +46,8 @@ def load_inputs(output_dir, train_file, labels_file):
     if not labels_path.exists():
         raise FileNotFoundError(f"Validation labels file not found: {labels_path}")
 
-    train_events = pd.read_csv(train_path)
-    valid_labels = pd.read_csv(labels_path)
+    train_events = pd.read_parquet(train_path)
+    valid_labels = pd.read_parquet(labels_path)
 
     required_train_columns = {"aid", "type"}
     required_label_columns = {"session", "type"}
