@@ -248,7 +248,7 @@ def main(argv=None):
 
             scores = model(histories, history_types, targets, target_types)
             loss_per_sample = criterion(scores, labels)
-            loss = (loss_per_sample * sample_weights).mean()
+            loss = (loss_per_sample * sample_weights).sum() / sample_weights.sum().clamp(min=1e-8)
 
             optimizer.zero_grad()
             loss.backward()
@@ -262,4 +262,3 @@ def main(argv=None):
     with open(output_dir / args.item2id_file, "wb") as f:
         pickle.dump(item2id, f)
     print(f"Saved model -> {args.model_file}, item2id -> {args.item2id_file}")
-

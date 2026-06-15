@@ -8,7 +8,7 @@
 ## 总体进度
 
 - [x] **P0** 工程地基(提速 + 配置)
-- [ ] **P1** DSSM 多目标改造 + 多源融合
+- [x] **P1** DSSM 多目标改造 + 多源融合
 - [ ] **P2** TIGER 生成式检索(核心亮点)
 - [ ] **P3** LightGBM 精排(补全两阶段,可选)
 - [ ] **P4** 收尾:消融实验 + 文档 + 可视化
@@ -16,7 +16,7 @@
 | 阶段 | 预计 | 依赖 | 状态 |
 |---|---|---|---|
 | P0 | 1–2天 | 无 | ✅ 完成 |
-| P1 | 3–5天 | P0(可选) | ⬜ 未开始 |
+| P1 | 3–5天 | P0(可选) | ✅ 完成 |
 | P2 | 1.5–2周 | P1 | ⬜ 未开始 |
 | P3 | ~1周 | P1 | ⬜ 未开始 |
 | P4 | 3–5天 | P1–P3 | ⬜ 未开始 |
@@ -28,7 +28,7 @@
 - [x] 单目标 + 多目标验证集构建
 - [x] Popular 召回(单 / 多目标)
 - [x] Covisitation 召回(全局;分类型/融合已移除)
-- [x] DSSM 双塔召回(**仅单目标**)
+- [x] DSSM 双塔召回(单目标 + 多目标 type-aware)
 - [x] 加权 Recall@20 评估
 
 ---
@@ -48,16 +48,20 @@
 
 ---
 
-## P1 · DSSM 多目标改造
+## P1 · DSSM 多目标改造 ✅
 > 目标:让 DSSM 进入多目标召回 + 融合 + 评估闭环。
 
-- [ ] 改 `src/models/train_dssm.py`:参数化输入文件(默认 `multi_target_train_events.csv`)
-- [ ] 产物改名 `dssm_model_mt.pth` / `item2id_mt.pkl`(防覆盖单目标)
-- [ ] 新增 `src/recall/generate_dssm_recall_multi_target.py`:输出 `(session, type, predictions)`
-- [ ] 加冷启动防护(`item2id.get`,跳过未登录 aid)
-- [ ] 新增 `src/recall/fusion_recall_multi_target.py`:popular + covis(全局) + dssm 三路按 `(session,type)` 融合
-- [ ] `src/pipeline/run.py` 注册:`train-dssm-multi-target` / `dssm-recall-multi-target` / `fusion-recall-multi-target`
-- [ ] 评估并记录:DSSM 单路 & 融合后加权 Recall@20
+- [x] 新增 `src/models/train_dssm_multi_target.py`:type-aware DSSM,支持多目标样本权重
+- [x] 产物改名 `dssm_model_mt.pth` / `item2id_mt.pkl`(防覆盖单目标)
+- [x] 新增 `src/recall/generate_dssm_recall_multi_target.py`:输出 `(session, type, predictions)`
+- [x] 加冷启动防护(`item2id.get`,跳过未登录 aid)
+- [x] 新增 `src/recall/fusion_recall_multi_target.py`:popular + covis(全局) + dssm 三路按 `(session,type)` 融合
+- [x] `src/pipeline/run.py` 注册:`train-dssm-multi-target` / `dssm-recall-multi-target` / `fusion-recall-multi-target`
+- [x] 评估并记录:DSSM 单路 & 融合后加权 Recall@20
+
+**当前结果**:
+- DSSM 单路(type-aware,weight-normalized loss,1M pairs / 5 epochs):加权 Recall@20 = 0.1792
+- 三路融合(popular=0.1,covis=2.5,dssm=0.6):加权 Recall@20 = 0.3028
 
 **产出**:`multi_target_dssm_predictions.csv`、`multi_target_fusion_predictions.csv`
 
@@ -108,8 +112,9 @@
 
 | 日期 | 配置 / 改动 | clicks | carts | orders | 加权分 | 备注 |
 |---|---|---|---|---|---|---|
-|  | popular 基线 |  |  |  |  |  |
-|  | + covis(全局) |  |  |  |  |  |
-|  | + dssm(多目标) |  |  |  |  |  |
+| 2026-06-15 | popular 基线 | 0.0091 | 0.0092 | 0.0099 | 0.0096 | 多目标 Top20 |
+| 2026-06-15 | covis(全局) | 0.1204 | 0.1511 | 0.3471 | 0.2656 | 当前最强单路传统召回 |
+| 2026-06-15 | dssm(多目标单路) | 0.0866 | 0.1052 | 0.2316 | 0.1792 | type-aware,weight-normalized loss,1M pairs / 5 epochs |
+| 2026-06-15 | fusion(popular+covis+dssm) | 0.1443 | 0.1778 | 0.3917 | 0.3028 | 权重 0.1 / 2.5 / 0.6,popular 为正的当前网格最高分 |
 |  | + tiger |  |  |  |  |  |
 |  | + 精排 |  |  |  |  |  |
