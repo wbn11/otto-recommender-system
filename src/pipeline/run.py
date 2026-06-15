@@ -46,6 +46,10 @@ TASKS = {
         "Generate multi-target DSSM recall predictions.",
     ),
     "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
+    "fusion-recall-multi-target": Task(
+        "recall/fusion_recall_multi_target.py",
+        "Fuse multi-source multi-target recall predictions.",
+    ),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
     "train-dssm-multi-target": Task(
         "models/train_dssm_multi_target.py",
