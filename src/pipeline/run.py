@@ -50,6 +50,18 @@ TASKS = {
         "recall/fusion_recall_multi_target.py",
         "Fuse multi-source multi-target recall predictions.",
     ),
+    "build-ranker-dataset": Task(
+        "rank/build_ranker_dataset_multi_target.py",
+        "Build multi-target ranker candidates.",
+    ),
+    "train-ranker-multi-target": Task(
+        "rank/train_ranker_multi_target.py",
+        "Train the multi-target LightGBM ranker.",
+    ),
+    "ranker-predict-multi-target": Task(
+        "rank/predict_ranker_multi_target.py",
+        "Generate multi-target ranker predictions.",
+    ),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
     "train-dssm-multi-target": Task(
         "models/train_dssm_multi_target.py",

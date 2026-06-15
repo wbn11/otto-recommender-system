@@ -10,7 +10,7 @@
 - [x] **P0** 工程地基(提速 + 配置)
 - [x] **P1** DSSM 多目标改造 + 多源融合
 - [ ] **P2** TIGER 生成式检索(核心亮点)
-- [ ] **P3** LightGBM 精排(补全两阶段,可选)
+- [x] **P3** LightGBM 精排(补全两阶段,可选)
 - [ ] **P4** 收尾:消融实验 + 文档 + 可视化
 
 | 阶段 | 预计 | 依赖 | 状态 |
@@ -18,7 +18,7 @@
 | P0 | 1–2天 | 无 | ✅ 完成 |
 | P1 | 3–5天 | P0(可选) | ✅ 完成 |
 | P2 | 1.5–2周 | P1 | ⬜ 未开始 |
-| P3 | ~1周 | P1 | ⬜ 未开始 |
+| P3 | ~1周 | P1 | ✅ 完成 |
 | P4 | 3–5天 | P1–P3 | ⬜ 未开始 |
 
 ---
@@ -83,16 +83,21 @@
 
 ---
 
-## P3 · LightGBM 精排(可选,补全两阶段)
+## P3 · LightGBM 精排 ✅(补全两阶段)
 > 目标:把"召回 + 固定权重融合"升级为"召回 → 学习型精排"。
 
-- [ ] 候选合并:每个 `(session,type)` 汇总各路候选,label = 是否命中未来标签
-- [ ] 特征工程:各通道分数/排名、item 流行度/分类型 CTR-CVR、recency、session 统计、TIGER 生成分数
-- [ ] LightGBM `lambdarank`,按 `(session,type)` 分组训练
-- [ ] Top-N 重排,对比精排前后加权 Recall@20
-- [ ] 新增 lightgbm 依赖
+- [x] 候选合并:每个 `(session,type)` 汇总 popular / covis / DSSM 候选,label = 是否命中未来标签
+- [x] 特征工程:各通道分数/排名、item 流行度、分类型行为计数、session 统计、target type
+- [x] LightGBM `lambdarank`,按 `(session,type)` 分组训练
+- [x] Top-N 重排,对比精排前后加权 Recall@20
+- [x] 新增 lightgbm 依赖
 
-**产出**:`ranker.txt`、特征重要性表
+**当前结果**:
+- 候选池 oracle:加权 Recall@20 = 0.3286
+- LightGBM ranker(full prediction):加权 Recall@20 = 0.3153
+- group-level holdout:ranker = 0.3094,fusion = 0.2985
+
+**产出**:`lgbm_ranker.txt`、`ranker_feature_importance.csv`
 
 ---
 
@@ -117,4 +122,4 @@
 | 2026-06-15 | dssm(多目标单路) | 0.0866 | 0.1052 | 0.2316 | 0.1792 | type-aware,weight-normalized loss,1M pairs / 5 epochs |
 | 2026-06-15 | fusion(popular+covis+dssm) | 0.1443 | 0.1778 | 0.3917 | 0.3028 | 权重 0.1 / 2.5 / 0.6,popular 为正的当前网格最高分 |
 |  | + tiger |  |  |  |  |  |
-|  | + 精排 |  |  |  |  |  |
+| 2026-06-16 | + LightGBM 精排(full prediction) | 0.1492 | 0.1846 | 0.4083 | 0.3153 | 候选池 oracle 0.3286;holdout ranker 0.3094 vs fusion 0.2985 |
