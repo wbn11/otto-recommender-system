@@ -41,6 +41,10 @@ TASKS = {
         "Generate multi-target co-visitation recall from saved matrix.",
     ),
     "dssm-recall": Task("recall/generate_dssm_recall.py", "Generate DSSM recall predictions."),
+    "dssm-recall-multi-target": Task(
+        "recall/generate_dssm_recall_multi_target.py",
+        "Generate multi-target DSSM recall predictions.",
+    ),
     "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
     "train-dssm-multi-target": Task(
