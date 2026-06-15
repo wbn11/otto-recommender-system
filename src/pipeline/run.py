@@ -43,6 +43,10 @@ TASKS = {
     "dssm-recall": Task("recall/generate_dssm_recall.py", "Generate DSSM recall predictions."),
     "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
     "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
+    "train-dssm-multi-target": Task(
+        "models/train_dssm_multi_target.py",
+        "Train the multi-target DSSM recall model.",
+    ),
     "evaluate": Task("evaluation/evaluate.py", "Evaluate recall predictions."),
     "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
     "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
