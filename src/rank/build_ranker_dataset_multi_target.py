@@ -21,6 +21,7 @@ DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
 DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_ranker_candidates.parquet"
 DEFAULT_K = 20
+DEFAULT_EVAL_K = 20
 
 
 def parse_args(argv=None):
@@ -28,7 +29,8 @@ def parse_args(argv=None):
     parser.add_argument("--train-file", default=DEFAULT_TRAIN_FILE)
     parser.add_argument("--labels-file", default=DEFAULT_LABELS_FILE)
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
-    parser.add_argument("--k", type=int, default=DEFAULT_K)
+    parser.add_argument("--k", type=int, default=DEFAULT_K, help="Max candidates loaded from each source.")
+    parser.add_argument("--eval-k", type=int, default=DEFAULT_EVAL_K, help="K used for candidate oracle recall.")
     parser.add_argument(
         "--source",
         action="append",
@@ -70,7 +72,7 @@ def build_event_stats(train_events):
     return item_counts, item_type_counts, session_counts, session_type_counts
 
 
-def append_candidate_rows(labels, prediction_maps, source_names, k):
+def append_candidate_rows(labels, prediction_maps, source_names, source_k, eval_k):
     rows = defaultdict(list)
     oracle_hits = {event_type: 0 for event_type in TYPE_WEIGHTS}
     oracle_denominators = {event_type: 0 for event_type in TYPE_WEIGHTS}
@@ -94,7 +96,7 @@ def append_candidate_rows(labels, prediction_maps, source_names, k):
 
         for source_name in source_names:
             items = prediction_maps[source_name].get((session, event_type), [])
-            for rank, aid in enumerate(items[:k], start=1):
+            for rank, aid in enumerate(items[:source_k], start=1):
                 candidate = candidates.setdefault(
                     aid,
                     {feature_name: 0 for feature_name in source_feature_names},
@@ -103,8 +105,8 @@ def append_candidate_rows(labels, prediction_maps, source_names, k):
                 candidate[f"{source_name}_rank"] = rank
                 candidate[f"{source_name}_score"] = 1.0 / rank
 
-        oracle_hits[event_type] += min(len(true_items.intersection(candidates)), k)
-        oracle_denominators[event_type] += min(len(true_items), k)
+        oracle_hits[event_type] += min(len(true_items.intersection(candidates)), eval_k)
+        oracle_denominators[event_type] += min(len(true_items), eval_k)
 
         for aid, features in candidates.items():
             rows["session"].append(session)
@@ -144,8 +146,8 @@ def add_stat_features(candidates, item_counts, item_type_counts, session_counts,
     return candidates
 
 
-def print_oracle_summary(oracle_hits, oracle_denominators):
-    print("Candidate oracle Recall@20")
+def print_oracle_summary(oracle_hits, oracle_denominators, eval_k):
+    print(f"Candidate oracle Recall@{eval_k}")
     weighted_score = 0.0
     for event_type, type_weight in TYPE_WEIGHTS.items():
         denominator = oracle_denominators[event_type]
@@ -169,7 +171,8 @@ def main(argv=None):
         labels=labels,
         prediction_maps=prediction_maps,
         source_names=source_names,
-        k=args.k,
+        source_k=args.k,
+        eval_k=args.eval_k,
     )
     candidates = add_stat_features(
         candidates,
@@ -187,4 +190,4 @@ def main(argv=None):
     print(f"Groups: {candidates[['session', 'type']].drop_duplicates().shape[0]:,}")
     print(f"Positive rows: {int(candidates['label'].sum()):,}")
     print(f"Sources: {', '.join(source_names)}")
-    print_oracle_summary(oracle_hits, oracle_denominators)
+    print_oracle_summary(oracle_hits, oracle_denominators, args.eval_k)

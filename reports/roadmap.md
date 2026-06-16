@@ -93,9 +93,12 @@
 - [x] 新增 lightgbm 依赖
 
 **当前结果**:
-- 候选池 oracle:加权 Recall@20 = 0.3286
-- LightGBM ranker(full prediction):加权 Recall@20 = 0.3153
+- Top20 候选池 oracle:加权 Recall@20 = 0.3286
+- Top20 LightGBM ranker(full prediction):加权 Recall@20 = 0.3153
+- 扩大候选(covis Top50 + DSSM Top50) oracle:加权 Recall@20 = 0.4058
+- 扩大候选 LightGBM ranker(full prediction):加权 Recall@20 = 0.3457
 - group-level holdout:ranker = 0.3094,fusion = 0.2985
+- group-level holdout(expanded50):ranker = 0.3401,fusion = 0.2985
 
 **产出**:`lgbm_ranker.txt`、`ranker_feature_importance.csv`
 
@@ -123,3 +126,4 @@
 | 2026-06-15 | fusion(popular+covis+dssm) | 0.1443 | 0.1778 | 0.3917 | 0.3028 | 权重 0.1 / 2.5 / 0.6,popular 为正的当前网格最高分 |
 |  | + tiger |  |  |  |  |  |
 | 2026-06-16 | + LightGBM 精排(full prediction) | 0.1492 | 0.1846 | 0.4083 | 0.3153 | 候选池 oracle 0.3286;holdout ranker 0.3094 vs fusion 0.2985 |
+| 2026-06-16 | + LightGBM 精排(expanded50) | 0.1603 | 0.2014 | 0.4488 | 0.3457 | covis Top50 + DSSM Top50;候选池 oracle 0.4058;holdout ranker 0.3401 |
