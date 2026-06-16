@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rank.common import build_predictions_from_scores, get_output_dir
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_ranker_candidates.parquet"
+DEFAULT_CANDIDATES_FILE = "multi_target_ranker_train_data.parquet"
 DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_MODEL_FILE = "lgbm_ranker.txt"
 DEFAULT_OUTPUT_FILE = "multi_target_ranker_predictions.csv"

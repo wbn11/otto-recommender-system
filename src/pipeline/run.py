@@ -46,9 +46,9 @@ TASKS = {
         "recall/build_recall_candidates_multi_target.py",
         "Merge multi-source recall predictions into a candidate pool.",
     ),
-    "build-ranker-dataset": Task(
-        "rank/build_ranker_dataset_multi_target.py",
-        "Build multi-target ranker candidates.",
+    "build-ranker-train-data-multi-target": Task(
+        "rank/build_ranker_train_data_multi_target.py",
+        "Build multi-target ranker training data from recall candidates.",
     ),
     "train-ranker-multi-target": Task(
         "rank/train_ranker_multi_target.py",

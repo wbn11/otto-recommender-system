@@ -1,4 +1,5 @@
 import argparse
+import gc
 import pickle
 import sys
 from pathlib import Path
@@ -16,7 +17,7 @@ from rank.common import (
 )
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_ranker_candidates.parquet"
+DEFAULT_CANDIDATES_FILE = "multi_target_ranker_train_data.parquet"
 DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_MODEL_FILE = "lgbm_ranker.txt"
 DEFAULT_IMPORTANCE_FILE = "ranker_feature_importance.csv"
@@ -73,10 +74,17 @@ def split_sessions(candidates, valid_ratio, seed):
 
 def prepare_lgb_dataset(lgb, df, feature_columns):
     df = df.sort_values(["session", "type"], kind="mergesort")
-    groups = df.groupby(["session", "type"], sort=False).size().to_numpy()
-    features = df[feature_columns].fillna(0)
-    labels = df["label"].astype("int8")
-    return lgb.Dataset(features, label=labels, group=groups, feature_name=feature_columns), df
+    groups = df.groupby(["session", "type"], sort=False, observed=True).size().to_numpy()
+    features = df[feature_columns]
+    labels = df["label"].astype("int8", copy=False)
+    dataset = lgb.Dataset(
+        features,
+        label=labels,
+        group=groups,
+        feature_name=feature_columns,
+        free_raw_data=False,
+    )
+    return dataset, df, len(df), len(groups)
 
 
 def main(argv=None):
@@ -97,11 +105,14 @@ def main(argv=None):
     valid_sessions = split_sessions(candidates, args.valid_ratio, args.seed)
 
     is_valid = candidates["session"].isin(valid_sessions)
-    train_df = candidates[~is_valid].copy()
-    valid_df = candidates[is_valid].copy()
+    train_df = candidates.loc[~is_valid]
+    valid_df = candidates.loc[is_valid]
 
-    train_data, train_df = prepare_lgb_dataset(lgb, train_df, feature_columns)
-    valid_data, valid_df = prepare_lgb_dataset(lgb, valid_df, feature_columns)
+    train_data, train_df, train_row_count, train_group_count = prepare_lgb_dataset(lgb, train_df, feature_columns)
+    valid_data, valid_df, valid_row_count, valid_group_count = prepare_lgb_dataset(lgb, valid_df, feature_columns)
+    del candidates
+    del train_df
+    gc.collect()
 
     params = {
         "objective": "lambdarank",
@@ -151,7 +162,7 @@ def main(argv=None):
     summary, weighted_score = evaluate_predictions(valid_labels, valid_predictions, args.k)
     print(f"Model saved to {args.model_file}")
     print(f"Feature importance saved to {args.importance_file}")
-    print(f"Train rows: {len(train_df):,}  Valid rows: {len(valid_df):,}")
-    print(f"Train groups: {train_df[['session', 'type']].drop_duplicates().shape[0]:,}")
-    print(f"Valid groups: {valid_df[['session', 'type']].drop_duplicates().shape[0]:,}")
+    print(f"Train rows: {train_row_count:,}  Valid rows: {valid_row_count:,}")
+    print(f"Train groups: {train_group_count:,}")
+    print(f"Valid groups: {valid_group_count:,}")
     print_eval_summary("Holdout ranker Recall@20", summary, weighted_score)

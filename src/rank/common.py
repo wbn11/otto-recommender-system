@@ -84,9 +84,9 @@ def build_predictions_from_scores(candidates, labels, score_col, k):
         ascending=[True, True, False, True],
         kind="mergesort",
     )
-    top = ranked.groupby(["session", "type"], sort=False).head(k)
+    top = ranked.groupby(["session", "type"], sort=False, observed=True).head(k)
     predictions = (
-        top.groupby(["session", "type"], sort=False)["aid"]
+        top.groupby(["session", "type"], sort=False, observed=True)["aid"]
         .apply(lambda values: " ".join(map(str, values.tolist())))
         .reset_index(name="predictions")
     )
