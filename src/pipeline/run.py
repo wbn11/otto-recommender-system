@@ -42,6 +42,10 @@ TASKS = {
         "recall/fusion_recall_multi_target.py",
         "Fuse multi-source multi-target recall predictions.",
     ),
+    "build-recall-candidates-multi-target": Task(
+        "recall/build_recall_candidates_multi_target.py",
+        "Merge multi-source recall predictions into a candidate pool.",
+    ),
     "build-ranker-dataset": Task(
         "rank/build_ranker_dataset_multi_target.py",
         "Build multi-target ranker candidates.",
@@ -62,6 +66,10 @@ TASKS = {
     "order-predictions-multi-target": Task(
         "evaluation/order_predictions_multi_target.py",
         "Order multi-target predictions by target rows.",
+    ),
+    "analyze-recall-candidates-multi-target": Task(
+        "evaluation/analyze_recall_candidates_multi_target.py",
+        "Analyze multi-target recall candidate oracle recall.",
     ),
     "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
 }
