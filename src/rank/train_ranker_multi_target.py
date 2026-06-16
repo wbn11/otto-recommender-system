@@ -42,6 +42,11 @@ def parse_args(argv=None):
     parser.add_argument("--early-stopping-rounds", type=int, default=30)
     parser.add_argument("--learning-rate", type=float, default=0.05)
     parser.add_argument("--num-leaves", type=int, default=63)
+    parser.add_argument("--min-data-in-leaf", type=int, default=50)
+    parser.add_argument("--feature-fraction", type=float, default=0.85)
+    parser.add_argument("--bagging-fraction", type=float, default=0.85)
+    parser.add_argument("--bagging-freq", type=int, default=1)
+    parser.add_argument("--lambdarank-truncation-level", type=int)
     parser.add_argument("--k", type=int, default=DEFAULT_K)
     return parser.parse_args(argv)
 
@@ -104,15 +109,17 @@ def main(argv=None):
         "ndcg_eval_at": [args.k],
         "learning_rate": args.learning_rate,
         "num_leaves": args.num_leaves,
-        "min_data_in_leaf": 50,
-        "feature_fraction": 0.85,
-        "bagging_fraction": 0.85,
-        "bagging_freq": 1,
+        "min_data_in_leaf": args.min_data_in_leaf,
+        "feature_fraction": args.feature_fraction,
+        "bagging_fraction": args.bagging_fraction,
+        "bagging_freq": args.bagging_freq,
         "label_gain": [0, 1],
         "seed": args.seed,
         "verbosity": -1,
         "force_col_wise": True,
     }
+    if args.lambdarank_truncation_level:
+        params["lambdarank_truncation_level"] = args.lambdarank_truncation_level
 
     model = lgb.train(
         params=params,

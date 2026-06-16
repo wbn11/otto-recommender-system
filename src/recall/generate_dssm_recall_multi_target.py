@@ -32,6 +32,7 @@ def parse_args(argv=None):
     parser.add_argument("--model-file", default=DEFAULT_MODEL_FILE)
     parser.add_argument("--item2id-file", default=DEFAULT_ITEM2ID_FILE)
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
+    parser.add_argument("--detail-file", help="Optional parquet output with columns session,type,aid,rank,dssm_score.")
     parser.add_argument("--k", type=int, default=DEFAULT_K)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--embedding-dim", type=int, default=DEFAULT_EMBEDDING_DIM)
@@ -103,6 +104,7 @@ def pad(values):
 def recommend_rows(model, item_embs, id2item, session_histories, session_history_types,
                    valid_labels, batch_size, k, device):
     rows = []
+    detail_rows = {"session": [], "type": [], "aid": [], "rank": [], "dssm_score": []}
     empty_rows = 0
     topk = min(k, item_embs.size(0) - 1)
     label_rows = list(zip(valid_labels["session"], valid_labels["type"]))
@@ -137,17 +139,34 @@ def recommend_rows(model, item_embs, id2item, session_histories, session_history
             session_embs = model.encode_session(histories, history_types, target_types)
             scores = session_embs @ item_embs.T
             scores[:, 0] = -1e9
-            topk_ids = torch.topk(scores, k=topk, dim=1).indices.cpu().tolist()
+            topk_values, topk_indices = torch.topk(scores, k=topk, dim=1)
+            topk_scores = topk_values.cpu().tolist()
+            topk_ids = topk_indices.cpu().tolist()
 
-        for (session, event_type), ids in zip(known_rows, topk_ids):
-            recs = [id2item[item_id] for item_id in ids if item_id in id2item]
+        for (session, event_type), ids, score_values in zip(known_rows, topk_ids, topk_scores):
+            recs = []
+            for rank, (item_id, score) in enumerate(zip(ids, score_values), start=1):
+                if item_id not in id2item:
+                    continue
+                aid = id2item[item_id]
+                recs.append(aid)
+                detail_rows["session"].append(session)
+                detail_rows["type"].append(event_type)
+                detail_rows["aid"].append(aid)
+                detail_rows["rank"].append(rank)
+                detail_rows["dssm_score"].append(score)
             rows.append({
                 "session": session,
                 "type": event_type,
                 "predictions": " ".join(map(str, recs[:k])),
             })
 
-    return pd.DataFrame(rows, columns=["session", "type", "predictions"]), empty_rows
+    predictions = pd.DataFrame(rows, columns=["session", "type", "predictions"])
+    details = pd.DataFrame(detail_rows, columns=["session", "type", "aid", "rank", "dssm_score"])
+    if not details.empty:
+        details["rank"] = details["rank"].astype("int16")
+        details["dssm_score"] = details["dssm_score"].astype("float32")
+    return predictions, details, empty_rows
 
 
 def main(argv=None):
@@ -165,7 +184,7 @@ def main(argv=None):
         item_embs = F.normalize(model.item_embedding.weight, p=2, dim=1)
 
     session_histories, session_history_types, skipped_items = build_session_histories(train_events, item2id)
-    predictions, empty_rows = recommend_rows(
+    predictions, details, empty_rows = recommend_rows(
         model=model,
         item_embs=item_embs,
         id2item=id2item,
@@ -177,9 +196,12 @@ def main(argv=None):
         device=device,
     )
     predictions.to_csv(output_dir / args.output_file, index=False)
+    if args.detail_file:
+        details.to_parquet(output_dir / args.detail_file, index=False)
+        print(f"Multi-target DSSM details saved to {args.detail_file}")
+        print(f"Detail rows: {len(details):,}")
 
     print(f"Multi-target DSSM predictions saved to {args.output_file}")
     print(f"Output rows: {len(predictions):,}")
     print(f"Skipped unknown history items: {skipped_items:,}")
     print(f"Empty prediction rows: {empty_rows:,}")
-

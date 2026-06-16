@@ -37,6 +37,10 @@ def parse_args(argv=None):
         help=f"Prediction output file under outputs/. Default: {DEFAULT_OUTPUT_FILE}",
     )
     parser.add_argument(
+        "--detail-file",
+        help="Optional parquet output with columns session,type,aid,rank,covis_score.",
+    )
+    parser.add_argument(
         "--k",
         type=int,
         default=DEFAULT_K,
@@ -54,7 +58,7 @@ def recommend(session_items, covis_topk, k):
             scores[neighbor] += weight * count
 
     ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    return [aid for aid, _ in ranked[:k]]
+    return ranked[:k]
 
 
 def load_inputs(output_dir, train_file, labels_file, covis_file):
@@ -83,7 +87,7 @@ def build_session_recommendations(valid_sessions, session_items, covis_topk, k):
 
     for session in tqdm(valid_sessions, desc="Generating multi-target covis recall"):
         recs = recommend(session_items.get(session, []), covis_topk, k)
-        recs_by_session[session] = " ".join(map(str, recs))
+        recs_by_session[session] = recs
 
     return recs_by_session
 
@@ -92,13 +96,32 @@ def build_predictions(valid_labels, recs_by_session):
     rows = []
 
     for session, event_type in zip(valid_labels["session"], valid_labels["type"]):
+        recs = recs_by_session.get(session, [])
         rows.append({
             "session": session,
             "type": event_type,
-            "predictions": recs_by_session.get(session, ""),
+            "predictions": " ".join(str(aid) for aid, _ in recs),
         })
 
     return pd.DataFrame(rows, columns=["session", "type", "predictions"])
+
+
+def build_details(valid_labels, recs_by_session):
+    rows = defaultdict(list)
+
+    for session, event_type in zip(valid_labels["session"], valid_labels["type"]):
+        for rank, (aid, score) in enumerate(recs_by_session.get(session, []), start=1):
+            rows["session"].append(session)
+            rows["type"].append(event_type)
+            rows["aid"].append(aid)
+            rows["rank"].append(rank)
+            rows["covis_score"].append(score)
+
+    details = pd.DataFrame(rows, columns=["session", "type", "aid", "rank", "covis_score"])
+    if not details.empty:
+        details["rank"] = details["rank"].astype("int16")
+        details["covis_score"] = details["covis_score"].astype("float32")
+    return details
 
 
 def main(argv=None):
@@ -123,6 +146,12 @@ def main(argv=None):
     recs_by_session = build_session_recommendations(valid_sessions, session_items, covis_topk, args.k)
     predictions = build_predictions(valid_labels, recs_by_session)
     predictions.to_csv(output_dir / args.output_file, index=False)
+
+    if args.detail_file:
+        details = build_details(valid_labels, recs_by_session)
+        details.to_parquet(output_dir / args.detail_file, index=False)
+        print(f"Multi-target covisitation details saved to {args.detail_file}")
+        print(f"Detail rows: {len(details):,}")
 
     empty_rows = int((predictions["predictions"] == "").sum())
     print(f"Multi-target covisitation predictions saved to {args.output_file}")

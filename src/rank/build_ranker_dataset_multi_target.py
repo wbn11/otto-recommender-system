@@ -36,6 +36,17 @@ def parse_args(argv=None):
         action="append",
         help="Recall source in name=file format. Can be passed multiple times.",
     )
+    parser.add_argument(
+        "--source-detail",
+        action="append",
+        help="Optional raw-score detail source in name=file format. Used by --feature-group raw.",
+    )
+    parser.add_argument(
+        "--feature-group",
+        action="append",
+        choices=["overlap", "raw", "history"],
+        help="Additional feature group to enable. Can be passed multiple times.",
+    )
     return parser.parse_args(argv)
 
 
@@ -50,11 +61,12 @@ def load_inputs(output_dir, args):
     train_events = pd.read_parquet(train_path)
     labels = pd.read_parquet(labels_path)
     sources = parse_source_args(args.source)
+    source_details = parse_source_args(args.source_detail) if args.source_detail else {}
     prediction_maps = {
         source_name: load_prediction_map(output_dir, file_name, args.k)
         for source_name, file_name in sources.items()
     }
-    return train_events, labels, sources, prediction_maps
+    return train_events, labels, sources, source_details, prediction_maps
 
 
 def build_event_stats(train_events):
@@ -146,6 +158,108 @@ def add_stat_features(candidates, item_counts, item_type_counts, session_counts,
     return candidates
 
 
+def add_overlap_features(candidates, source_names):
+    from_columns = [f"from_{source_name}" for source_name in source_names]
+    rank_columns = [f"{source_name}_rank" for source_name in source_names]
+    score_columns = [f"{source_name}_score" for source_name in source_names]
+
+    candidates["source_count"] = candidates[from_columns].sum(axis=1).astype("int8")
+    rank_values = candidates[rank_columns].where(candidates[rank_columns] > 0)
+    candidates["min_rank"] = rank_values.min(axis=1).fillna(0).astype("int16")
+    candidates["rrf_score"] = candidates[score_columns].sum(axis=1).astype("float32")
+    return candidates
+
+
+def find_detail_score_column(details, source_name):
+    candidates = [
+        f"{source_name}_raw_score",
+        f"{source_name}_score",
+        "score",
+    ]
+    for column in candidates:
+        if column in details.columns:
+            return column
+    raise ValueError(
+        f"Detail file for {source_name} must include one of these score columns: {candidates}"
+    )
+
+
+def add_raw_score_features(candidates, output_dir, source_details):
+    if not source_details:
+        raise ValueError("--feature-group raw requires at least one --source-detail name=file argument.")
+
+    for source_name, file_name in source_details.items():
+        detail_path = output_dir / file_name
+        if not detail_path.exists():
+            raise FileNotFoundError(f"Source detail file not found: {detail_path}")
+
+        details = pd.read_parquet(detail_path)
+        required_columns = {"session", "type", "aid"}
+        missing_columns = required_columns - set(details.columns)
+        if missing_columns:
+            raise ValueError(f"{detail_path} missing columns: {sorted(missing_columns)}")
+
+        score_column = find_detail_score_column(details, source_name)
+        raw_column = f"{source_name}_raw_score"
+        details = details[["session", "type", "aid", score_column]].rename(
+            columns={score_column: raw_column}
+        )
+        details = details.drop_duplicates(["session", "type", "aid"], keep="first")
+        candidates = candidates.merge(details, on=["session", "type", "aid"], how="left")
+        candidates[raw_column] = candidates[raw_column].fillna(0).astype("float32")
+
+    return candidates
+
+
+def build_history_features(train_events):
+    events = train_events.sort_values(["session", "ts"], kind="mergesort").copy()
+    events["event_pos"] = events.groupby("session", sort=False).cumcount()
+    events["session_len_for_pos"] = events.groupby("session", sort=False)["aid"].transform("size")
+
+    counts = (
+        events.groupby(["session", "aid"], sort=False)
+        .size()
+        .reset_index(name="session_aid_count")
+    )
+    last_events = events.groupby(["session", "aid"], sort=False).tail(1)
+    last_events = last_events[["session", "aid", "type", "event_pos", "session_len_for_pos"]].copy()
+    last_events["aid_last_pos_from_end"] = (
+        last_events["session_len_for_pos"] - last_events["event_pos"] - 1
+    )
+    last_events["aid_last_type_id"] = last_events["type"].map(TYPE2ID).fillna(0)
+
+    history = counts.merge(
+        last_events[["session", "aid", "aid_last_pos_from_end", "aid_last_type_id"]],
+        on=["session", "aid"],
+        how="left",
+    )
+    history["session_aid_count"] = history["session_aid_count"].astype("int16")
+    history["aid_last_pos_from_end"] = history["aid_last_pos_from_end"].astype("int16")
+    history["aid_last_type_id"] = history["aid_last_type_id"].astype("int8")
+    return history
+
+
+def add_history_features(candidates, train_events):
+    history = build_history_features(train_events)
+    candidates = candidates.merge(history, on=["session", "aid"], how="left")
+    candidates["in_session_history"] = candidates["session_aid_count"].notna().astype("int8")
+    candidates["session_aid_count"] = candidates["session_aid_count"].fillna(0).astype("int16")
+    candidates["aid_last_pos_from_end"] = candidates["aid_last_pos_from_end"].fillna(-1).astype("int16")
+    candidates["aid_last_type_id"] = candidates["aid_last_type_id"].fillna(0).astype("int8")
+    return candidates
+
+
+def apply_feature_groups(candidates, train_events, output_dir, source_names, source_details, feature_groups):
+    feature_groups = set(feature_groups or [])
+    if "overlap" in feature_groups:
+        candidates = add_overlap_features(candidates, source_names)
+    if "raw" in feature_groups:
+        candidates = add_raw_score_features(candidates, output_dir, source_details)
+    if "history" in feature_groups:
+        candidates = add_history_features(candidates, train_events)
+    return candidates
+
+
 def print_oracle_summary(oracle_hits, oracle_denominators, eval_k):
     print(f"Candidate oracle Recall@{eval_k}")
     weighted_score = 0.0
@@ -163,8 +277,9 @@ def print_oracle_summary(oracle_hits, oracle_denominators, eval_k):
 def main(argv=None):
     args = parse_args(argv)
     output_dir = get_output_dir()
-    train_events, labels, sources, prediction_maps = load_inputs(output_dir, args)
+    train_events, labels, sources, source_details, prediction_maps = load_inputs(output_dir, args)
     source_names = list(sources)
+    feature_groups = args.feature_group or []
 
     item_counts, item_type_counts, session_counts, session_type_counts = build_event_stats(train_events)
     candidates, oracle_hits, oracle_denominators = append_candidate_rows(
@@ -181,6 +296,14 @@ def main(argv=None):
         session_counts=session_counts,
         session_type_counts=session_type_counts,
     )
+    candidates = apply_feature_groups(
+        candidates=candidates,
+        train_events=train_events,
+        output_dir=output_dir,
+        source_names=source_names,
+        source_details=source_details,
+        feature_groups=feature_groups,
+    )
 
     output_path = output_dir / args.output_file
     candidates.to_parquet(output_path, index=False)
@@ -190,4 +313,5 @@ def main(argv=None):
     print(f"Groups: {candidates[['session', 'type']].drop_duplicates().shape[0]:,}")
     print(f"Positive rows: {int(candidates['label'].sum()):,}")
     print(f"Sources: {', '.join(source_names)}")
+    print(f"Feature groups: {', '.join(feature_groups) if feature_groups else 'base'}")
     print_oracle_summary(oracle_hits, oracle_denominators, args.eval_k)
