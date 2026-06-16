@@ -18,34 +18,26 @@ SRC_DIR = Path(__file__).resolve().parents[1]
 
 TASKS = {
     "eda": Task("data/eda.py", "Run exploratory data analysis."),
-    "build-validation": Task("data/build_validation.py", "Build leave-one-out validation files."),
     "build-multi-target-validation": Task(
         "data/build_multi_target_validation.py",
         "Build multi-target validation files.",
     ),
-    "build-dssm-dataset": Task("data/build_dssm_dataset.py", "Inspect DSSM training pairs."),
-    "popular-recall": Task("recall/popular_recall.py", "Generate popular item recall."),
     "popular-recall-multi-target": Task(
         "recall/popular_recall_multi_target.py",
         "Generate multi-target popular item recall.",
     ),
-    "build-covis-matrix": Task("recall/build_covis_matrix.py", "Build co-visitation top-k matrix."),
     "build-covis-matrix-multi-target": Task(
         "recall/build_covis_matrix_multi_target.py",
         "Build multi-target co-visitation top-k matrix.",
     ),
-    "covisitation": Task("recall/covisitation.py", "Build full co-visitation recall."),
-    "covisitation-recall": Task("recall/covisitation_recall.py", "Generate co-visitation recall from saved matrix."),
     "covisitation-recall-multi-target": Task(
         "recall/covisitation_recall_multi_target.py",
         "Generate multi-target co-visitation recall from saved matrix.",
     ),
-    "dssm-recall": Task("recall/generate_dssm_recall.py", "Generate DSSM recall predictions."),
     "dssm-recall-multi-target": Task(
         "recall/generate_dssm_recall_multi_target.py",
         "Generate multi-target DSSM recall predictions.",
     ),
-    "fusion-recall": Task("recall/fusion_recall.py", "Fuse multi-source recall predictions."),
     "fusion-recall-multi-target": Task(
         "recall/fusion_recall_multi_target.py",
         "Fuse multi-source multi-target recall predictions.",
@@ -62,12 +54,10 @@ TASKS = {
         "rank/predict_ranker_multi_target.py",
         "Generate multi-target ranker predictions.",
     ),
-    "train-dssm": Task("models/train_dssm.py", "Train the DSSM model."),
     "train-dssm-multi-target": Task(
         "models/train_dssm_multi_target.py",
         "Train the multi-target DSSM recall model.",
     ),
-    "evaluate": Task("evaluation/evaluate.py", "Evaluate recall predictions."),
     "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
     "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
 }

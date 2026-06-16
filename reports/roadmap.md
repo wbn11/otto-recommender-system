@@ -25,23 +25,23 @@
 
 ## 已完成(基线)
 
-- [x] 单目标 + 多目标验证集构建
+- [x] 多目标验证集构建
 - [x] Popular 召回(单 / 多目标)
 - [x] Covisitation 召回(全局;分类型/融合已移除)
-- [x] DSSM 双塔召回(单目标 + 多目标 type-aware)
+- [x] DSSM 双塔召回(多目标 type-aware)
 - [x] 加权 Recall@20 评估
 
 ---
 
 ## P0 · 工程地基 ✅(多目标主链路)
-> 目标:消除 I/O 瓶颈、统一超参管理。已完成多目标主链路;单目标(leave-one-out)旧链路暂留 CSV,待 P1 重做 DSSM 时一并迁移。
+> 目标:消除 I/O 瓶颈、统一超参管理。项目主链路已统一为多目标 parquet 流程,旧单目标链路已移除。
 
 - [x] ① `expand_events` 的 `iterrows` → polars `scan_ndjson` 向量化展开 + 写 parquet(`src/data/build_multi_target_validation.py`)
 - [x] ① 新增 `polars` / `pyarrow` / `pyyaml` 依赖到 `requirements.txt`
 - [x] ① 多目标下游脚本改读 parquet(popular / covis build / covis recall / evaluate)
 - [x] ② 新建 `configs/default.yaml` + `src/utils/config.py` 加载器,接入多目标 build / covis / evaluate 默认值
 - [x] ③ 命名规范:中间表 `.parquet`、预测 `.csv`、矩阵 `.pkl`、多目标加 `multi_target_` 前缀
-- [ ] (留待 P1)单目标 leave-one-out 链路迁移 parquet
+- [x] 移除旧单目标 leave-one-out 链路,保留多目标主链路
 
 **产出**:`outputs/multi_target_*.parquet`、`configs/default.yaml`、`src/utils/config.py`
 **验证**:`--nrows 2000` 隔离冒烟测试,build→popular→evaluate→covis→evaluate 全链路通过(covis 加权分 0.34 ≫ popular 0.005)
@@ -52,7 +52,7 @@
 > 目标:让 DSSM 进入多目标召回 + 融合 + 评估闭环。
 
 - [x] 新增 `src/models/train_dssm_multi_target.py`:type-aware DSSM,支持多目标样本权重
-- [x] 产物改名 `dssm_model_mt.pth` / `item2id_mt.pkl`(防覆盖单目标)
+- [x] 产物命名 `dssm_model_mt.pth` / `item2id_mt.pkl`
 - [x] 新增 `src/recall/generate_dssm_recall_multi_target.py`:输出 `(session, type, predictions)`
 - [x] 加冷启动防护(`item2id.get`,跳过未登录 aid)
 - [x] 新增 `src/recall/fusion_recall_multi_target.py`:popular + covis(全局) + dssm 三路按 `(session,type)` 融合
