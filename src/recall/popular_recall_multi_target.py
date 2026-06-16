@@ -1,12 +1,16 @@
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.target_rows import build_validation_target_rows
+
 
 EVENT_TYPES = ("clicks", "carts", "orders")
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_popular_predictions.csv"
 DEFAULT_K = 20
 
@@ -18,10 +22,16 @@ def parse_args(argv=None):
         default=DEFAULT_TRAIN_FILE,
         help=f"Train events file under outputs/. Default: {DEFAULT_TRAIN_FILE}",
     )
-    parser.add_argument(
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument(
+        "--target-file",
+        default=DEFAULT_TARGET_FILE,
+        help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}",
+    )
+    target_group.add_argument(
         "--labels-file",
-        default=DEFAULT_LABELS_FILE,
-        help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}",
+        dest="target_file",
+        help="Backward-compatible alias for --target-file.",
     )
     parser.add_argument(
         "--output-file",
@@ -37,30 +47,26 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def load_inputs(output_dir, train_file, labels_file):
+def load_inputs(output_dir, train_file, target_file):
     train_path = output_dir / train_file
-    labels_path = output_dir / labels_file
+    target_path = output_dir / target_file
 
     if not train_path.exists():
         raise FileNotFoundError(f"Train events file not found: {train_path}")
-    if not labels_path.exists():
-        raise FileNotFoundError(f"Validation labels file not found: {labels_path}")
+    if not target_path.exists():
+        raise FileNotFoundError(f"Target rows file not found: {target_path}")
 
     train_events = pd.read_parquet(train_path)
-    valid_labels = pd.read_parquet(labels_path)
+    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
 
     required_train_columns = {"aid", "type"}
-    required_label_columns = {"session", "type"}
 
     missing_train_columns = required_train_columns - set(train_events.columns)
-    missing_label_columns = required_label_columns - set(valid_labels.columns)
 
     if missing_train_columns:
         raise ValueError(f"{train_path} missing columns: {sorted(missing_train_columns)}")
-    if missing_label_columns:
-        raise ValueError(f"{labels_path} missing columns: {sorted(missing_label_columns)}")
 
-    return train_events, valid_labels
+    return train_events, target_rows
 
 
 def build_type_popular_items(train_events, k):
@@ -96,10 +102,10 @@ def fill_to_k(items, fallback_items, k):
     return filled
 
 
-def build_predictions(valid_labels, popular_by_type):
+def build_predictions(target_rows, popular_by_type):
     rows = []
 
-    for session, event_type in zip(valid_labels["session"], valid_labels["type"]):
+    for session, event_type in zip(target_rows["session"], target_rows["type"]):
         items = popular_by_type.get(event_type, [])
         rows.append({
             "session": session,
@@ -115,9 +121,9 @@ def main(argv=None):
     root = Path(__file__).resolve().parent.parent.parent
     output_dir = root / "outputs"
 
-    train_events, valid_labels = load_inputs(output_dir, args.train_file, args.labels_file)
+    train_events, target_rows = load_inputs(output_dir, args.train_file, args.target_file)
     popular_by_type = build_type_popular_items(train_events, args.k)
-    predictions = build_predictions(valid_labels, popular_by_type)
+    predictions = build_predictions(target_rows, popular_by_type)
     predictions.to_csv(output_dir / args.output_file, index=False)
 
     print(f"Multi-target popular predictions saved to {args.output_file}")

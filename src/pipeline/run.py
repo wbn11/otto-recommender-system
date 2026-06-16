@@ -59,6 +59,10 @@ TASKS = {
         "Train the multi-target DSSM recall model.",
     ),
     "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
+    "order-predictions-multi-target": Task(
+        "evaluation/order_predictions_multi_target.py",
+        "Order multi-target predictions by target rows.",
+    ),
     "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
 }
 

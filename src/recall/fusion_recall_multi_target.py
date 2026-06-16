@@ -1,12 +1,16 @@
 import argparse
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.target_rows import build_validation_target_rows
 
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+
+DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_POPULAR_FILE = "multi_target_popular_predictions.csv"
 DEFAULT_COVIS_FILE = "multi_target_covisitation_predictions.csv"
 DEFAULT_DSSM_FILE = "multi_target_dssm_predictions.csv"
@@ -22,7 +26,11 @@ TYPE_WEIGHTS = {
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Fuse multi-target recall predictions.")
-    parser.add_argument("--labels-file", default=DEFAULT_LABELS_FILE)
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument("--target-file", default=DEFAULT_TARGET_FILE,
+                              help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}")
+    target_group.add_argument("--labels-file", dest="target_file",
+                              help="Backward-compatible alias for --target-file.")
     parser.add_argument("--popular-file", default=DEFAULT_POPULAR_FILE)
     parser.add_argument("--covis-file", default=DEFAULT_COVIS_FILE)
     parser.add_argument("--dssm-file", default=DEFAULT_DSSM_FILE)
@@ -80,15 +88,13 @@ def load_predictions(output_dir, file_name):
 
 
 def load_inputs(output_dir, args):
-    labels_path = output_dir / args.labels_file
-    if not labels_path.exists():
-        raise FileNotFoundError(f"Labels file not found: {labels_path}")
+    target_path = output_dir / args.target_file
+    if not target_path.exists():
+        raise FileNotFoundError(f"Target rows file not found: {target_path}")
 
-    labels = pd.read_parquet(labels_path)
-    required_label_columns = {"session", "type", "labels"}
-    missing_columns = required_label_columns - set(labels.columns)
-    if missing_columns:
-        raise ValueError(f"{labels_path} missing columns: {sorted(missing_columns)}")
+    target_frame = pd.read_parquet(target_path)
+    target_rows = build_validation_target_rows(target_frame)
+    labels = target_frame if "labels" in target_frame.columns else None
 
     source_predictions = {}
     empty_counts = {}
@@ -99,7 +105,7 @@ def load_inputs(output_dir, args):
     }.items():
         source_predictions[source_name], empty_counts[source_name] = load_predictions(output_dir, file_name)
 
-    return labels, source_predictions, empty_counts
+    return target_rows, labels, source_predictions, empty_counts
 
 
 def add_source_scores(items, source_weight, scores):
@@ -130,15 +136,15 @@ def fill_to_k(items, fallback_items, k):
     return filled
 
 
-def fuse_predictions(labels, source_predictions, weights, k):
+def fuse_predictions(target_rows, source_predictions, weights, k):
     fallback_items = build_fallback_items(source_predictions)
     rows = []
     underfilled_before_fallback = 0
     underfilled_after_fallback = 0
 
     for session, event_type in tqdm(
-        zip(labels["session"], labels["type"]),
-        total=len(labels),
+        zip(target_rows["session"], target_rows["type"]),
+        total=len(target_rows),
         desc="Fusing multi-target recalls",
         leave=False,
     ):
@@ -205,20 +211,27 @@ def print_eval_summary(weights, summary, weighted_score):
     print(f"Weighted Score: {weighted_score:.4f}")
 
 
-def run_single(labels, source_predictions, weights, output_path, k):
-    predictions, underfilled_before, underfilled_after = fuse_predictions(labels, source_predictions, weights, k)
-    summary, weighted_score = evaluate_predictions(labels, predictions, k)
+def run_single(target_rows, labels, source_predictions, weights, output_path, k):
+    predictions, underfilled_before, underfilled_after = fuse_predictions(target_rows, source_predictions, weights, k)
     predictions.to_csv(output_path, index=False)
 
     print(f"Fusion predictions saved to {output_path.name}")
     print(f"Output rows: {len(predictions):,}")
     print(f"Underfilled before fallback: {underfilled_before:,}")
     print(f"Underfilled after fallback: {underfilled_after:,}")
+    if labels is None:
+        print("No labels column found; skipped fusion evaluation.")
+        return predictions, None, None
+
+    summary, weighted_score = evaluate_predictions(labels, predictions, k)
     print_eval_summary(weights, summary, weighted_score)
     return predictions, summary, weighted_score
 
 
-def run_grid_search(labels, source_predictions, args, output_dir):
+def run_grid_search(target_rows, labels, source_predictions, args, output_dir):
+    if labels is None:
+        raise ValueError("--grid-search requires a target file with a labels column.")
+
     rows = []
     best = None
 
@@ -231,7 +244,7 @@ def run_grid_search(labels, source_predictions, args, output_dir):
                     "dssm": dssm_weight,
                 }
                 predictions, underfilled_before, underfilled_after = fuse_predictions(
-                    labels,
+                    target_rows,
                     source_predictions,
                     weights,
                     args.k,
@@ -273,18 +286,18 @@ def run_grid_search(labels, source_predictions, args, output_dir):
 def main(argv=None):
     args = parse_args(argv)
     output_dir = Path(__file__).resolve().parents[2] / "outputs"
-    labels, source_predictions, empty_counts = load_inputs(output_dir, args)
+    target_rows, labels, source_predictions, empty_counts = load_inputs(output_dir, args)
 
-    print(f"Label rows: {len(labels):,}")
+    print(f"Target rows: {len(target_rows):,}")
     for source_name, empty_count in empty_counts.items():
         print(f"{source_name} empty prediction rows: {empty_count:,}")
 
     if args.grid_search:
-        run_grid_search(labels, source_predictions, args, output_dir)
+        run_grid_search(target_rows, labels, source_predictions, args, output_dir)
     else:
         weights = {
             "popular": args.popular_weight,
             "covis": args.covis_weight,
             "dssm": args.dssm_weight,
         }
-        run_single(labels, source_predictions, weights, output_dir / args.output_file, args.k)
+        run_single(target_rows, labels, source_predictions, weights, output_dir / args.output_file, args.k)

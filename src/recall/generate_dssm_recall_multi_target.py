@@ -11,12 +11,13 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from models.train_dssm_multi_target import DSSM, TYPE2ID
 from utils.config import load_config
+from utils.target_rows import build_validation_target_rows
 
 
 _CFG = load_config()
 _DSSM = _CFG.get("dssm", {})
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_MODEL_FILE = "dssm_model_mt.pth"
 DEFAULT_ITEM2ID_FILE = "item2id_mt.pkl"
 DEFAULT_OUTPUT_FILE = "multi_target_dssm_predictions.csv"
@@ -28,7 +29,11 @@ DEFAULT_EMBEDDING_DIM = _DSSM.get("embedding_dim", 128)
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Generate multi-target DSSM recall predictions.")
     parser.add_argument("--train-file", default=DEFAULT_TRAIN_FILE)
-    parser.add_argument("--labels-file", default=DEFAULT_LABELS_FILE)
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument("--target-file", default=DEFAULT_TARGET_FILE,
+                              help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}")
+    target_group.add_argument("--labels-file", dest="target_file",
+                              help="Backward-compatible alias for --target-file.")
     parser.add_argument("--model-file", default=DEFAULT_MODEL_FILE)
     parser.add_argument("--item2id-file", default=DEFAULT_ITEM2ID_FILE)
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
@@ -41,20 +46,20 @@ def parse_args(argv=None):
 
 def load_inputs(output_dir, args):
     train_path = output_dir / args.train_file
-    labels_path = output_dir / args.labels_file
+    target_path = output_dir / args.target_file
     model_path = output_dir / args.model_file
     item2id_path = output_dir / args.item2id_file
 
-    for path in [train_path, labels_path, model_path, item2id_path]:
+    for path in [train_path, target_path, model_path, item2id_path]:
         if not path.exists():
             raise FileNotFoundError(f"Required file not found: {path}")
 
     train_events = pd.read_parquet(train_path)
-    valid_labels = pd.read_parquet(labels_path)
+    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
     with open(item2id_path, "rb") as f:
         item2id = pickle.load(f)
 
-    return train_events, valid_labels, model_path, item2id
+    return train_events, target_rows, model_path, item2id
 
 
 def load_model(model_path, item2id, args, device):
@@ -102,15 +107,15 @@ def pad(values):
 
 
 def recommend_rows(model, item_embs, id2item, session_histories, session_history_types,
-                   valid_labels, batch_size, k, device):
+                   target_rows, batch_size, k, device):
     rows = []
     detail_rows = {"session": [], "type": [], "aid": [], "rank": [], "dssm_score": []}
     empty_rows = 0
     topk = min(k, item_embs.size(0) - 1)
-    label_rows = list(zip(valid_labels["session"], valid_labels["type"]))
+    target_row_values = list(zip(target_rows["session"], target_rows["type"]))
 
-    for start in tqdm(range(0, len(label_rows), batch_size), desc="Generating multi-target DSSM recall"):
-        batch_rows = label_rows[start:start + batch_size]
+    for start in tqdm(range(0, len(target_row_values), batch_size), desc="Generating multi-target DSSM recall"):
+        batch_rows = target_row_values[start:start + batch_size]
         known_rows = []
         known_histories = []
         known_history_types = []
@@ -173,9 +178,9 @@ def main(argv=None):
     args = parse_args(argv)
     output_dir = Path(__file__).resolve().parents[2] / "outputs"
 
-    train_events, valid_labels, model_path, item2id = load_inputs(output_dir, args)
+    train_events, target_rows, model_path, item2id = load_inputs(output_dir, args)
     id2item = {idx: aid for aid, idx in item2id.items()}
-    print(f"items={len(item2id):,}  label rows={len(valid_labels):,}")
+    print(f"items={len(item2id):,}  target rows={len(target_rows):,}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}")
@@ -190,7 +195,7 @@ def main(argv=None):
         id2item=id2item,
         session_histories=session_histories,
         session_history_types=session_history_types,
-        valid_labels=valid_labels,
+        target_rows=target_rows,
         batch_size=args.batch_size,
         k=args.k,
         device=device,

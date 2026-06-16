@@ -1,14 +1,18 @@
 import argparse
 import pickle
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.target_rows import build_validation_target_rows
+
 
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_COVIS_FILE = "multi_target_covis_topk.pkl"
 DEFAULT_OUTPUT_FILE = "multi_target_covisitation_predictions.csv"
 DEFAULT_K = 20
@@ -21,10 +25,16 @@ def parse_args(argv=None):
         default=DEFAULT_TRAIN_FILE,
         help=f"Train events file under outputs/. Default: {DEFAULT_TRAIN_FILE}",
     )
-    parser.add_argument(
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument(
+        "--target-file",
+        default=DEFAULT_TARGET_FILE,
+        help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}",
+    )
+    target_group.add_argument(
         "--labels-file",
-        default=DEFAULT_LABELS_FILE,
-        help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}",
+        dest="target_file",
+        help="Backward-compatible alias for --target-file.",
     )
     parser.add_argument(
         "--covis-file",
@@ -61,25 +71,25 @@ def recommend(session_items, covis_topk, k):
     return ranked[:k]
 
 
-def load_inputs(output_dir, train_file, labels_file, covis_file):
+def load_inputs(output_dir, train_file, target_file, covis_file):
     train_path = output_dir / train_file
-    labels_path = output_dir / labels_file
+    target_path = output_dir / target_file
     covis_path = output_dir / covis_file
 
     if not train_path.exists():
         raise FileNotFoundError(f"Train events file not found: {train_path}")
-    if not labels_path.exists():
-        raise FileNotFoundError(f"Validation labels file not found: {labels_path}")
+    if not target_path.exists():
+        raise FileNotFoundError(f"Target rows file not found: {target_path}")
     if not covis_path.exists():
         raise FileNotFoundError(f"Co-visitation file not found: {covis_path}")
 
     train_events = pd.read_parquet(train_path)
-    valid_labels = pd.read_parquet(labels_path)
+    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
 
     with open(covis_path, "rb") as f:
         covis_topk = pickle.load(f)
 
-    return train_events, valid_labels, covis_topk
+    return train_events, target_rows, covis_topk
 
 
 def build_session_recommendations(valid_sessions, session_items, covis_topk, k):
@@ -92,10 +102,10 @@ def build_session_recommendations(valid_sessions, session_items, covis_topk, k):
     return recs_by_session
 
 
-def build_predictions(valid_labels, recs_by_session):
+def build_predictions(target_rows, recs_by_session):
     rows = []
 
-    for session, event_type in zip(valid_labels["session"], valid_labels["type"]):
+    for session, event_type in zip(target_rows["session"], target_rows["type"]):
         recs = recs_by_session.get(session, [])
         rows.append({
             "session": session,
@@ -106,10 +116,10 @@ def build_predictions(valid_labels, recs_by_session):
     return pd.DataFrame(rows, columns=["session", "type", "predictions"])
 
 
-def build_details(valid_labels, recs_by_session):
+def build_details(target_rows, recs_by_session):
     rows = defaultdict(list)
 
-    for session, event_type in zip(valid_labels["session"], valid_labels["type"]):
+    for session, event_type in zip(target_rows["session"], target_rows["type"]):
         for rank, (aid, score) in enumerate(recs_by_session.get(session, []), start=1):
             rows["session"].append(session)
             rows["type"].append(event_type)
@@ -129,10 +139,10 @@ def main(argv=None):
     root = Path(__file__).resolve().parent.parent.parent
     output_dir = root / "outputs"
 
-    train_events, valid_labels, covis_topk = load_inputs(
+    train_events, target_rows, covis_topk = load_inputs(
         output_dir,
         args.train_file,
-        args.labels_file,
+        args.target_file,
         args.covis_file,
     )
 
@@ -142,13 +152,13 @@ def main(argv=None):
         .apply(list)
         .to_dict()
     )
-    valid_sessions = valid_labels["session"].drop_duplicates().tolist()
-    recs_by_session = build_session_recommendations(valid_sessions, session_items, covis_topk, args.k)
-    predictions = build_predictions(valid_labels, recs_by_session)
+    target_sessions = target_rows["session"].drop_duplicates().tolist()
+    recs_by_session = build_session_recommendations(target_sessions, session_items, covis_topk, args.k)
+    predictions = build_predictions(target_rows, recs_by_session)
     predictions.to_csv(output_dir / args.output_file, index=False)
 
     if args.detail_file:
-        details = build_details(valid_labels, recs_by_session)
+        details = build_details(target_rows, recs_by_session)
         details.to_parquet(output_dir / args.detail_file, index=False)
         print(f"Multi-target covisitation details saved to {args.detail_file}")
         print(f"Detail rows: {len(details):,}")
