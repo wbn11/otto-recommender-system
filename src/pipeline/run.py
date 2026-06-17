@@ -22,6 +22,10 @@ TASKS = {
         "data/build_multi_target_validation.py",
         "Build multi-target validation files.",
     ),
+    "build-test-events-multi-target": Task(
+        "data/build_test_events_multi_target.py",
+        "Build multi-target test events.",
+    ),
     "popular-recall-multi-target": Task(
         "recall/popular_recall_multi_target.py",
         "Generate multi-target popular item recall.",
@@ -50,6 +54,10 @@ TASKS = {
         "rank/build_ranker_train_data_multi_target.py",
         "Build multi-target ranker training data from recall candidates.",
     ),
+    "build-ranker-inference-data-multi-target": Task(
+        "rank/build_ranker_inference_data_multi_target.py",
+        "Build multi-target ranker inference data from recall candidates.",
+    ),
     "train-ranker-multi-target": Task(
         "rank/train_ranker_multi_target.py",
         "Train the multi-target LightGBM ranker.",
@@ -63,6 +71,7 @@ TASKS = {
         "Train the multi-target DSSM recall model.",
     ),
     "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
+    "build-submission": Task("evaluation/build_submission.py", "Build Kaggle submission from predictions."),
     "order-predictions-multi-target": Task(
         "evaluation/order_predictions_multi_target.py",
         "Order multi-target predictions by target rows.",
