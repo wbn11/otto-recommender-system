@@ -165,7 +165,11 @@ def cast_existing_feature_dtypes(candidates):
 
     for column in [column for column in candidates.columns if column.endswith("_rank") or column == "min_rank"]:
         candidates[column] = candidates[column].fillna(0).astype("int16")
-    for column in [column for column in candidates.columns if column.endswith("_score")]:
+    for column in [
+        column
+        for column in candidates.columns
+        if column.endswith("_score") or column.endswith("_score_norm")
+    ]:
         candidates[column] = candidates[column].fillna(0).astype("float32")
 
     return candidates
