@@ -5,12 +5,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from utils.target_rows import build_validation_target_rows
+from utils.target_rows import load_target_rows_from_file
 
 
 EVENT_TYPES = ("clicks", "carts", "orders")
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_popular_predictions.csv"
 DEFAULT_K = 20
 
@@ -24,14 +24,12 @@ def parse_args(argv=None):
     )
     target_group = parser.add_mutually_exclusive_group()
     target_group.add_argument(
-        "--target-file",
-        default=DEFAULT_TARGET_FILE,
-        help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}",
+        "--labels-file",
+        help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}",
     )
     target_group.add_argument(
-        "--labels-file",
-        dest="target_file",
-        help="Backward-compatible alias for --target-file.",
+        "--test-events-file",
+        help="Test events file under outputs/. Target rows are expanded to all types.",
     )
     parser.add_argument(
         "--output-file",
@@ -47,17 +45,14 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def load_inputs(output_dir, train_file, target_file):
+def load_inputs(output_dir, train_file, labels_file, test_events_file):
     train_path = output_dir / train_file
-    target_path = output_dir / target_file
 
     if not train_path.exists():
         raise FileNotFoundError(f"Train events file not found: {train_path}")
-    if not target_path.exists():
-        raise FileNotFoundError(f"Target rows file not found: {target_path}")
 
     train_events = pd.read_parquet(train_path)
-    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
+    target_rows = load_target_rows_from_file(output_dir, labels_file, test_events_file)
 
     required_train_columns = {"aid", "type"}
 
@@ -121,7 +116,8 @@ def main(argv=None):
     root = Path(__file__).resolve().parent.parent.parent
     output_dir = root / "outputs"
 
-    train_events, target_rows = load_inputs(output_dir, args.train_file, args.target_file)
+    labels_file = args.labels_file if args.test_events_file else (args.labels_file or DEFAULT_LABELS_FILE)
+    train_events, target_rows = load_inputs(output_dir, args.train_file, labels_file, args.test_events_file)
     popular_by_type = build_type_popular_items(train_events, args.k)
     predictions = build_predictions(target_rows, popular_by_type)
     predictions.to_csv(output_dir / args.output_file, index=False)

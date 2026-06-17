@@ -6,14 +6,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from utils.target_rows import (
-    build_test_target_rows,
-    build_validation_target_rows,
+    load_target_rows_from_file,
     order_predictions_by_target_rows,
 )
 
 
 DEFAULT_PRED_FILE = "multi_target_ranker_predictions.csv"
-DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_OUTPUT_FILE = "multi_target_ranker_predictions_ordered.csv"
 DEFAULT_K = 20
 
@@ -21,24 +20,12 @@ DEFAULT_K = 20
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Order multi-target predictions by target rows.")
     parser.add_argument("--pred-file", default=DEFAULT_PRED_FILE)
-    parser.add_argument("--target-file", default=DEFAULT_TARGET_FILE)
-    parser.add_argument("--events-file", help="Build target rows from events by expanding every session to all types.")
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument("--labels-file", help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}")
+    target_group.add_argument("--test-events-file", help="Test events file under outputs/. Target rows are expanded to all types.")
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
     parser.add_argument("--k", type=int, default=DEFAULT_K)
     return parser.parse_args(argv)
-
-
-def load_target_rows(output_dir, target_file, events_file):
-    if events_file:
-        events_path = output_dir / events_file
-        if not events_path.exists():
-            raise FileNotFoundError(f"Events file not found: {events_path}")
-        return build_test_target_rows(pd.read_parquet(events_path))
-
-    target_path = output_dir / target_file
-    if not target_path.exists():
-        raise FileNotFoundError(f"Target file not found: {target_path}")
-    return build_validation_target_rows(pd.read_parquet(target_path))
 
 
 def main(argv=None):
@@ -49,7 +36,8 @@ def main(argv=None):
         raise FileNotFoundError(f"Prediction file not found: {pred_path}")
 
     predictions = pd.read_csv(pred_path)
-    target_rows = load_target_rows(output_dir, args.target_file, args.events_file)
+    labels_file = args.labels_file if args.test_events_file else (args.labels_file or DEFAULT_LABELS_FILE)
+    target_rows = load_target_rows_from_file(output_dir, labels_file, args.test_events_file)
     ordered = order_predictions_by_target_rows(predictions, target_rows, args.k)
     ordered.to_csv(output_dir / args.output_file, index=False)
 

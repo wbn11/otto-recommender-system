@@ -7,10 +7,10 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from utils.target_rows import build_validation_target_rows
+from utils.target_rows import load_target_rows_from_file
 
 
-DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_POPULAR_FILE = "multi_target_popular_predictions.csv"
 DEFAULT_COVIS_FILE = "multi_target_covisitation_predictions.csv"
 DEFAULT_DSSM_FILE = "multi_target_dssm_predictions.csv"
@@ -27,10 +27,10 @@ TYPE_WEIGHTS = {
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Fuse multi-target recall predictions.")
     target_group = parser.add_mutually_exclusive_group()
-    target_group.add_argument("--target-file", default=DEFAULT_TARGET_FILE,
-                              help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}")
-    target_group.add_argument("--labels-file", dest="target_file",
-                              help="Backward-compatible alias for --target-file.")
+    target_group.add_argument("--labels-file",
+                              help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}")
+    target_group.add_argument("--test-events-file",
+                              help="Test events file under outputs/. Target rows are expanded to all types.")
     parser.add_argument("--popular-file", default=DEFAULT_POPULAR_FILE)
     parser.add_argument("--covis-file", default=DEFAULT_COVIS_FILE)
     parser.add_argument("--dssm-file", default=DEFAULT_DSSM_FILE)
@@ -88,13 +88,12 @@ def load_predictions(output_dir, file_name):
 
 
 def load_inputs(output_dir, args):
-    target_path = output_dir / args.target_file
-    if not target_path.exists():
-        raise FileNotFoundError(f"Target rows file not found: {target_path}")
-
-    target_frame = pd.read_parquet(target_path)
-    target_rows = build_validation_target_rows(target_frame)
-    labels = target_frame if "labels" in target_frame.columns else None
+    labels_file = args.labels_file if args.test_events_file else (args.labels_file or DEFAULT_LABELS_FILE)
+    target_rows = load_target_rows_from_file(output_dir, labels_file, args.test_events_file)
+    labels = None
+    if not args.test_events_file:
+        target_frame = pd.read_parquet(output_dir / labels_file)
+        labels = target_frame if "labels" in target_frame.columns else None
 
     source_predictions = {}
     empty_counts = {}

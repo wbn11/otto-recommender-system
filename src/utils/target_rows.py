@@ -33,6 +33,28 @@ def build_test_target_rows(events_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=TARGET_COLUMNS)
 
 
+def load_target_rows_from_file(
+    output_dir,
+    labels_file: str | None = None,
+    test_events_file: str | None = None,
+) -> pd.DataFrame:
+    if labels_file and test_events_file:
+        raise ValueError("--labels-file and --test-events-file are mutually exclusive.")
+    if not labels_file and not test_events_file:
+        raise ValueError("Either labels_file or test_events_file must be provided.")
+
+    if test_events_file:
+        events_path = output_dir / test_events_file
+        if not events_path.exists():
+            raise FileNotFoundError(f"Events file not found: {events_path}")
+        return build_test_target_rows(pd.read_parquet(events_path))
+
+    labels_path = output_dir / labels_file
+    if not labels_path.exists():
+        raise FileNotFoundError(f"Labels file not found: {labels_path}")
+    return build_validation_target_rows(pd.read_parquet(labels_path))
+
+
 def parse_unique_prediction_items(value) -> list[str]:
     if pd.isna(value):
         return []

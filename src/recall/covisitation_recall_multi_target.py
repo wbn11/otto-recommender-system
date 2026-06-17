@@ -8,11 +8,11 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from utils.target_rows import build_validation_target_rows
+from utils.target_rows import load_target_rows_from_file
 
 
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_COVIS_FILE = "multi_target_covis_topk.pkl"
 DEFAULT_OUTPUT_FILE = "multi_target_covisitation_predictions.csv"
 DEFAULT_K = 20
@@ -27,14 +27,12 @@ def parse_args(argv=None):
     )
     target_group = parser.add_mutually_exclusive_group()
     target_group.add_argument(
-        "--target-file",
-        default=DEFAULT_TARGET_FILE,
-        help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}",
+        "--labels-file",
+        help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}",
     )
     target_group.add_argument(
-        "--labels-file",
-        dest="target_file",
-        help="Backward-compatible alias for --target-file.",
+        "--test-events-file",
+        help="Test events file under outputs/. Target rows are expanded to all types.",
     )
     parser.add_argument(
         "--covis-file",
@@ -71,20 +69,17 @@ def recommend(session_items, covis_topk, k):
     return ranked[:k]
 
 
-def load_inputs(output_dir, train_file, target_file, covis_file):
+def load_inputs(output_dir, train_file, labels_file, test_events_file, covis_file):
     train_path = output_dir / train_file
-    target_path = output_dir / target_file
     covis_path = output_dir / covis_file
 
     if not train_path.exists():
         raise FileNotFoundError(f"Train events file not found: {train_path}")
-    if not target_path.exists():
-        raise FileNotFoundError(f"Target rows file not found: {target_path}")
     if not covis_path.exists():
         raise FileNotFoundError(f"Co-visitation file not found: {covis_path}")
 
     train_events = pd.read_parquet(train_path)
-    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
+    target_rows = load_target_rows_from_file(output_dir, labels_file, test_events_file)
 
     with open(covis_path, "rb") as f:
         covis_topk = pickle.load(f)
@@ -139,10 +134,12 @@ def main(argv=None):
     root = Path(__file__).resolve().parent.parent.parent
     output_dir = root / "outputs"
 
+    labels_file = args.labels_file if args.test_events_file else (args.labels_file or DEFAULT_LABELS_FILE)
     train_events, target_rows, covis_topk = load_inputs(
         output_dir,
         args.train_file,
-        args.target_file,
+        labels_file,
+        args.test_events_file,
         args.covis_file,
     )
 

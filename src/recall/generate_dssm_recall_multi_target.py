@@ -11,13 +11,13 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from models.train_dssm_multi_target import DSSM, TYPE2ID
 from utils.config import load_config
-from utils.target_rows import build_validation_target_rows
+from utils.target_rows import load_target_rows_from_file
 
 
 _CFG = load_config()
 _DSSM = _CFG.get("dssm", {})
 DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_TARGET_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
 DEFAULT_MODEL_FILE = "dssm_model_mt.pth"
 DEFAULT_ITEM2ID_FILE = "item2id_mt.pkl"
 DEFAULT_OUTPUT_FILE = "multi_target_dssm_predictions.csv"
@@ -30,10 +30,10 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Generate multi-target DSSM recall predictions.")
     parser.add_argument("--train-file", default=DEFAULT_TRAIN_FILE)
     target_group = parser.add_mutually_exclusive_group()
-    target_group.add_argument("--target-file", default=DEFAULT_TARGET_FILE,
-                              help=f"Target rows file under outputs/. Default: {DEFAULT_TARGET_FILE}")
-    target_group.add_argument("--labels-file", dest="target_file",
-                              help="Backward-compatible alias for --target-file.")
+    target_group.add_argument("--labels-file",
+                              help=f"Validation labels file under outputs/. Default: {DEFAULT_LABELS_FILE}")
+    target_group.add_argument("--test-events-file",
+                              help="Test events file under outputs/. Target rows are expanded to all types.")
     parser.add_argument("--model-file", default=DEFAULT_MODEL_FILE)
     parser.add_argument("--item2id-file", default=DEFAULT_ITEM2ID_FILE)
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
@@ -46,16 +46,16 @@ def parse_args(argv=None):
 
 def load_inputs(output_dir, args):
     train_path = output_dir / args.train_file
-    target_path = output_dir / args.target_file
+    labels_file = args.labels_file if args.test_events_file else (args.labels_file or DEFAULT_LABELS_FILE)
     model_path = output_dir / args.model_file
     item2id_path = output_dir / args.item2id_file
 
-    for path in [train_path, target_path, model_path, item2id_path]:
+    for path in [train_path, model_path, item2id_path]:
         if not path.exists():
             raise FileNotFoundError(f"Required file not found: {path}")
 
     train_events = pd.read_parquet(train_path)
-    target_rows = build_validation_target_rows(pd.read_parquet(target_path))
+    target_rows = load_target_rows_from_file(output_dir, labels_file, args.test_events_file)
     with open(item2id_path, "rb") as f:
         item2id = pickle.load(f)
 
