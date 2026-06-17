@@ -27,7 +27,8 @@ SOURCE_COLUMNS = [
     "from_covis", "covis_rank", "covis_score",
     "from_dssm", "dssm_rank", "dssm_score",
 ]
-OUTPUT_COLUMNS = [
+RAW_SCORE_NORM_COLUMNS = ["covis_raw_score_norm", "dssm_raw_score_norm"]
+BASE_OUTPUT_COLUMNS = [
     "session", "type", "aid",
     *SOURCE_COLUMNS,
     "source_count", "min_rank", "rrf_score", "target_type_id",
@@ -41,6 +42,8 @@ def parse_args(argv=None):
     parser.add_argument("--popular-file", default=SOURCE_FILES["popular"])
     parser.add_argument("--covis-file", default=SOURCE_FILES["covis"])
     parser.add_argument("--dssm-file", default=SOURCE_FILES["dssm"])
+    parser.add_argument("--covis-detail-file", help="Optional covis detail parquet with raw covis scores.")
+    parser.add_argument("--dssm-detail-file", help="Optional DSSM detail parquet with raw cosine scores.")
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
     parser.add_argument("--k", type=int, default=DEFAULT_K, help="Max candidates loaded from each source.")
     return parser.parse_args(argv)
@@ -84,10 +87,83 @@ def add_source_candidates(candidates, predictions, source_name, k):
             candidate[score_col] = 1.0 / rank
 
 
-def candidates_to_frame(candidates):
+def find_detail_score_column(details, source_name):
+    score_columns = [f"{source_name}_score", "score"]
+    for column in score_columns:
+        if column in details.columns:
+            return column
+    raise ValueError(f"{source_name} detail file must include one of: {score_columns}")
+
+
+def add_normalized_raw_scores(candidates, details, source_name):
+    required_columns = {"session", "type", "aid"}
+    missing_columns = required_columns - set(details.columns)
+    if missing_columns:
+        raise ValueError(f"{source_name} detail file missing columns: {sorted(missing_columns)}")
+
+    score_column = find_detail_score_column(details, source_name)
+    raw_norm_column = f"{source_name}_raw_score_norm"
+    details = details[["session", "type", "aid", score_column]].copy()
+
+    grouped_scores = details.groupby(["session", "type"], sort=False)[score_column]
+    min_scores = grouped_scores.transform("min")
+    max_scores = grouped_scores.transform("max")
+    denominator = max_scores - min_scores
+    details[raw_norm_column] = np.where(
+        denominator > 0,
+        (details[score_column] - min_scores) / denominator,
+        1.0,
+    ).astype("float32")
+
+    matched_rows = 0
+    for session, event_type, aid, score in tqdm(
+        zip(details["session"], details["type"], details["aid"], details[raw_norm_column]),
+        total=len(details),
+        desc=f"Loading {source_name} normalized raw scores",
+        leave=False,
+    ):
+        candidate = candidates.get((int(session), event_type, int(aid)))
+        if candidate is None:
+            continue
+        candidate[raw_norm_column] = float(score)
+        matched_rows += 1
+
+    return matched_rows
+
+
+def load_and_add_normalized_raw_scores(output_dir, candidates, source_detail_files):
+    matched_counts = {}
+    for source_name, file_name in source_detail_files.items():
+        if not file_name:
+            continue
+
+        path = output_dir / file_name
+        if not path.exists():
+            raise FileNotFoundError(f"{source_name} detail file not found: {path}")
+
+        details = pd.read_parquet(path)
+        matched_counts[source_name] = add_normalized_raw_scores(candidates, details, source_name)
+
+    return matched_counts
+
+
+def get_output_columns(include_raw_score_norm):
+    if not include_raw_score_norm:
+        return BASE_OUTPUT_COLUMNS
+
+    return [
+        "session", "type", "aid",
+        *SOURCE_COLUMNS,
+        *RAW_SCORE_NORM_COLUMNS,
+        "source_count", "min_rank", "rrf_score", "target_type_id",
+    ]
+
+
+def candidates_to_frame(candidates, include_raw_score_norm):
+    output_columns = get_output_columns(include_raw_score_norm)
     row_count = len(candidates)
     if not row_count:
-        return pd.DataFrame(columns=OUTPUT_COLUMNS)
+        return pd.DataFrame(columns=output_columns)
 
     columns = {
         "session": np.empty(row_count, dtype=np.int64),
@@ -101,6 +177,8 @@ def candidates_to_frame(candidates):
         "from_dssm": np.zeros(row_count, dtype=np.int8),
         "dssm_rank": np.zeros(row_count, dtype=np.int16),
         "dssm_score": np.zeros(row_count, dtype=np.float32),
+        "covis_raw_score_norm": np.zeros(row_count, dtype=np.float32),
+        "dssm_raw_score_norm": np.zeros(row_count, dtype=np.float32),
         "source_count": np.zeros(row_count, dtype=np.int8),
         "min_rank": np.zeros(row_count, dtype=np.int16),
         "rrf_score": np.zeros(row_count, dtype=np.float32),
@@ -123,6 +201,9 @@ def candidates_to_frame(candidates):
         columns["aid"][idx] = aid
         for column in SOURCE_COLUMNS:
             columns[column][idx] = features[column]
+        if include_raw_score_norm:
+            for column in RAW_SCORE_NORM_COLUMNS:
+                columns[column][idx] = features.get(column, 0.0)
         columns["source_count"][idx] = sum(source_flags)
         columns["min_rank"][idx] = min(ranks) if ranks else 0
         columns["rrf_score"][idx] = sum(scores)
@@ -132,15 +213,18 @@ def candidates_to_frame(candidates):
     gc.collect()
 
     columns["type"] = pd.Categorical.from_codes(type_codes - 1, categories=TYPE_ORDER)
-    return pd.DataFrame(columns, columns=OUTPUT_COLUMNS, copy=False)
+    return pd.DataFrame(columns, columns=output_columns, copy=False)
 
 
-def build_recall_candidates(output_dir, source_files, k):
+def build_recall_candidates(output_dir, source_files, source_detail_files, k):
     candidates = {}
     for source_name, file_name in source_files.items():
         predictions = load_predictions(output_dir, file_name, k)
         add_source_candidates(candidates, predictions, source_name, k)
-    return candidates_to_frame(candidates)
+
+    matched_counts = load_and_add_normalized_raw_scores(output_dir, candidates, source_detail_files)
+    include_raw_score_norm = any(source_detail_files.values())
+    return candidates_to_frame(candidates, include_raw_score_norm), matched_counts
 
 
 def main(argv=None):
@@ -151,8 +235,12 @@ def main(argv=None):
         "covis": args.covis_file,
         "dssm": args.dssm_file,
     }
+    source_detail_files = {
+        "covis": args.covis_detail_file,
+        "dssm": args.dssm_detail_file,
+    }
 
-    candidates = build_recall_candidates(output_dir, source_files, args.k)
+    candidates, matched_counts = build_recall_candidates(output_dir, source_files, source_detail_files, args.k)
     candidates.to_parquet(output_dir / args.output_file, index=False)
 
     duplicate_count = int(candidates.duplicated(["session", "type", "aid"]).sum()) if not candidates.empty else 0
@@ -162,3 +250,5 @@ def main(argv=None):
     print(f"Groups: {group_count:,}")
     print(f"Duplicate (session,type,aid) rows: {duplicate_count:,}")
     print(f"Sources: {', '.join(source_files)}")
+    for source_name, matched_count in matched_counts.items():
+        print(f"{source_name} normalized raw score rows matched: {matched_count:,}")
