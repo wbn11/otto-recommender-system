@@ -1,6 +1,6 @@
 # OTTO 多目标推荐系统架构
 
-本文档说明当前项目的主流程、关键输入输出格式和各模块职责。项目目标是基于 OTTO 数据完成 `clicks / carts / orders` 三类目标的推荐，评估指标为加权 Recall@20。
+本文档说明项目的主流程、关键输入输出格式和模块职责。项目目标是基于 OTTO 数据完成 `clicks / carts / orders` 三类目标的推荐，评估指标为加权 Recall@20：
 
 ```text
 clicks: 0.10
@@ -10,7 +10,7 @@ orders: 0.60
 
 ## 1. 总体架构
 
-项目采用工业推荐系统里常见的两阶段结构：
+项目采用推荐系统中常见的两阶段结构：
 
 ```text
 数据构建
@@ -26,76 +26,31 @@ orders: 0.60
 
 validation 有真实未来 label，因此可以做离线评估和排序训练。
 
-```mermaid
-flowchart TD
-    A["数据切分"] --> B1["热门召回"]
-    A --> B2["共现召回"]
-    A --> B3["DSSM 召回"]
-    B1 --> C["候选池合并"]
-    B2 --> C
-    B3 --> C
-    C --> D["候选池分析"]
-    C --> E["训练样本构建"]
-    E --> F["模型训练"]
-    F --> G["排序预测"]
-    G --> H["离线评估"]
-
-    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
-    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
-    classDef candidate fill:#f0fdfa,stroke:#0f766e,color:#0f172a;
-    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
-    classDef eval fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
-
-    class A data;
-    class B1,B2,B3 recall;
-    class C candidate;
-    class E,F,G rank;
-    class D,H eval;
-```
+![Validation architecture](assets/architecture_validation.png)
 
 说明：
 
-- 召回脚本只需要历史行为和目标行，不依赖真实 label。
-- `build_ranker_train_data.py` 才会读取 `valid_labels.parquet`，给候选 item 打 `label`。
-- `analyze_recall_candidates.py` 不属于主训练链路，它只用于观察候选池 oracle 上限。
+- 召回脚本只需要历史行为和目标行，不直接依赖真实 label。
+- `build_ranker_train_data.py` 会读取 `valid_labels.parquet`，给候选 item 打 `label`。
+- `analyze_recall_candidates.py` 不属于主训练链路，只用于观察候选池 oracle 上限。
 
-### 三路召回实现
+## 3. 三路召回与多目标处理
 
-当前项目的召回由三路互补方法组成，输出格式统一为 `session,type,predictions`，便于后续直接合并候选池：
+三路召回统一输出 `session,type,predictions`，这样后续可以直接合并为候选池。
 
-- 热门召回：按 `clicks / carts / orders` 分别统计高频 item，生成 type-specific 热门榜；如果某类不足 TopK，用全局热门补齐，主要作为短 session 的兜底候选。
-- 共现召回：先统计 session 内 item 两两共现并保存 item TopK 邻居；召回时按 session 历史从近到远用 `1 / position` 加权累加邻居分数。它本身不区分目标 type，同一个 session 的共现候选会复用到三类目标。
-- DSSM 召回：使用 type-aware DSSM，把 session 历史 item 和行为 type 编码成 session 向量，再结合目标 type 与全量 item embedding 做相似度检索。同一个 session 在 `clicks / carts / orders` 下可以得到不同 DSSM 候选。
+| 召回源 | 实现方式 | 多目标处理 |
+| :--- | :--- | :--- |
+| Popular | 按历史行为统计热门 item，作为短 session 和冷启动兜底召回 | 按 `clicks / carts / orders` 分别统计 type-specific 热门榜；不足 TopK 时用全局热门补齐 |
+| Co-visitation | 统计 session 内 item 两两共现，保存 item top-k 邻居；召回时按 session 历史从近到远用 `1 / position` 加权累加邻居分数 | 共现矩阵本身不区分目标 type，同一 session 的共现候选会复用到三类目标 |
+| DSSM | 训练 type-aware 双塔模型，将 session 历史和 item 映射到同一向量空间，再用相似度检索召回 | session encoder 会注入目标 type，因此同一 session 在 `clicks / carts / orders` 下可以得到不同 DSSM 候选 |
 
-这个设计让热门召回提供分类型兜底，共现召回提供稳定的 session 相邻商品覆盖，DSSM 召回补充带目标类型信息的向量候选。
+这个设计让 Popular 提供分类型兜底，Co-visitation 提供稳定的相邻商品覆盖，DSSM 补充带目标类型信息的向量候选。
 
-## 3. Test / Submission 流程
+## 4. Test / Submission 流程
 
-test 没有真实 label，只能做推理和提交文件生成。
+test 没有真实 label，只执行推理和提交文件生成。
 
-```mermaid
-flowchart TD
-    A["测试数据构建"] --> B1["热门召回"]
-    A --> B2["共现召回"]
-    A --> B3["DSSM 召回"]
-    B1 --> C["候选池合并"]
-    B2 --> C
-    B3 --> C
-    C --> D["推理特征构建"]
-    D --> E["加载排序模型"]
-    E --> F["排序预测"]
-    F --> G["生成提交"]
-
-    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
-    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
-    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
-    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
-
-    class A data;
-    class B1,B2,B3,C recall;
-    class D,E,F rank;
-    class G output;
-```
+![Test architecture](assets/architecture_test.png)
 
 test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：
 
@@ -105,11 +60,11 @@ session,carts
 session,orders
 ```
 
-## 4. 关键输入输出格式
+## 5. 关键输入输出格式
 
 这里的“格式”指每类中间文件必须包含哪些列。只要字段名和含义保持一致，各模块就可以稳定衔接。
 
-训练事件：
+训练或测试事件：
 
 ```text
 session, aid, ts, type
@@ -133,9 +88,11 @@ Kaggle submission：
 session_type, labels
 ```
 
-## 5. Pipeline 入口
+## 6. Pipeline 入口
 
-所有脚本都通过 `src/pipeline/run.py` 统一执行。以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。推荐优先使用 workflow：
+所有脚本都通过 `src/pipeline/run.py` 统一执行。以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。
+
+推荐优先使用 workflow：
 
 ```powershell
 python src\pipeline\run.py --workflow validation
@@ -146,10 +103,12 @@ python src\pipeline\run.py --workflow all
 
 其中：
 
-- `validation`: 构建 validation 召回候选池，并分析 candidate oracle。
-- `ranker`: 构建排序训练数据、训练 LightGBM、生成 validation 预测并评估。
-- `test`: 生成 test 预测和 `submission.csv`。
-- `all`: 执行 `validation + ranker`。
+| Workflow | 作用 |
+| :--- | :--- |
+| `validation` | 构建 validation 召回候选池，并分析 candidate oracle |
+| `ranker` | 构建排序训练数据、训练 LightGBM、生成 validation 预测并评估 |
+| `test` | 生成 test 预测和 `submission.csv` |
+| `all` | 执行 `validation + ranker` |
 
 查看所有 workflow 和 task：
 
@@ -159,9 +118,9 @@ python src\pipeline\run.py --list
 
 `--list` 会按 Data / Recall / Ranker / Evaluation 分组显示，并在每一项后给出示例命令。
 
-## 6. 召回候选池字段
+## 7. 召回候选池字段
 
-`build_recall_candidates.py` 合并 popular、covisitation、DSSM 三路召回，输出一行一个候选：
+`build_recall_candidates.py` 合并 Popular、Co-visitation、DSSM 三路召回，输出一行一个候选：
 
 ```text
 session, type, aid,
@@ -173,17 +132,19 @@ source_count, min_rank, rrf_score, target_type_id
 
 字段含义：
 
-- `from_*`: 该候选是否来自对应召回源。
-- `*_rank`: 该候选在对应召回源中的名次。
-- `popular_score / covis_score / dssm_score`: 基于 rank 的 `1 / rank` 分数，用于 RRF 类融合特征。
-- `covis_raw_score_norm`: co-visitation 原始累积分数在同一个 `(session,type)` 内的归一化值，需要传入 covis detail 文件才会生成。
-- `dssm_raw_score_norm`: DSSM cosine similarity 在同一个 `(session,type)` 内的归一化值，需要传入 DSSM detail 文件才会生成。
-- `source_count`: 候选被多少路召回同时命中。
-- `min_rank`: 候选在所有来源中的最好名次。
-- `rrf_score`: reciprocal rank fusion 分数。
-- `target_type_id`: `type` 的数值编码，方便 LightGBM 使用。
+| 字段 | 含义 |
+| :--- | :--- |
+| `from_*` | 该候选是否来自对应召回源 |
+| `*_rank` | 该候选在对应召回源中的名次 |
+| `popular_score / covis_score / dssm_score` | 基于 rank 的 `1 / rank` 分数，用于 RRF 类融合特征 |
+| `covis_raw_score_norm` | Co-visitation 原始累积分数在同一 `(session,type)` 内的归一化值 |
+| `dssm_raw_score_norm` | DSSM cosine similarity 在同一 `(session,type)` 内的归一化值 |
+| `source_count` | 候选被多少路召回同时命中 |
+| `min_rank` | 候选在所有来源中的最好名次 |
+| `rrf_score` | reciprocal rank fusion 分数 |
+| `target_type_id` | `type` 的数值编码，方便 LightGBM 使用 |
 
-## 7. 排序训练数据字段
+## 8. 排序训练数据字段
 
 `build_ranker_train_data.py` 在召回候选池基础上增加监督信号和统计特征：
 
@@ -194,14 +155,16 @@ session_len, session_click_count, session_cart_count, session_order_count,
 in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 ```
 
-其中：
+字段含义：
 
-- `label`: 当前候选 `aid` 是否在该 `(session,type)` 的未来真实 labels 中。
-- `item_*`: item 在训练历史中的全局统计。
-- `session_*`: 当前 session 的长度和行为类型计数。
-- `history_*`: 候选 item 是否在当前 session 历史中出现过，以及最近一次出现的位置和类型。
+| 字段 | 含义 |
+| :--- | :--- |
+| `label` | 当前候选 `aid` 是否在该 `(session,type)` 的未来真实 labels 中 |
+| `item_*` | item 在训练历史中的全局统计 |
+| `session_*` | 当前 session 的长度和行为类型计数 |
+| `history_*` | 候选 item 是否在当前 session 历史中出现过，以及最近一次出现的位置和类型 |
 
-## 8. 模块职责
+## 9. 模块职责
 
 ### 数据层
 
@@ -231,16 +194,31 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 - `evaluate.py`: 评估预测文件的 Recall@20。
 - `build_submission.py`: 生成 Kaggle submission 格式。
 
-## 9. 当前结果
+## 10. 实验设置与结果
 
-| 阶段 | Weighted Recall@20 |
-|---|---:|
-| Popular | 0.0096 |
-| Covisitation | 0.2656 |
-| DSSM | 0.1792 |
-| Fixed fusion | 0.3028 |
-| Top50 candidate oracle | 0.4058 |
-| LightGBM holdout | 0.3793 |
-| LightGBM full validation | 0.3858 |
+实验设置：
+
+| 设置项 | 说明 |
+| :--- | :--- |
+| 数据规模 | 使用训练集中的 `100000` 条 session |
+| 验证集划分 | 每个 session 内按时间顺序 `8:2` 切分 |
+| 单路召回评估 | Top20 |
+| 排序候选池 | Co-visitation 和 DSSM 使用 Top50 召回结果 |
+| LightGBM 划分 | 按 session 做 `8:2` train/holdout 划分 |
+| 最终预测 | 每个 `(session,type)` 输出 Top20 item |
+
+实验结果：
+
+| 阶段 | 含义 | Weighted Recall@20 |
+| :--- | :--- | ---: |
+| 热门召回 | Top20 单路召回 | 0.0096 |
+| 共现召回 | Top20 单路召回 | 0.2656 |
+| DSSM 召回 | Top20 单路召回 | 0.1792 |
+| 固定权重融合 | Popular + Co-visitation + DSSM，输出 Top20 | 0.3028 |
+| 候选池上限 | 在 Top50 候选池中理想选择 Top20 时的召回上限 | 0.4058 |
+| LightGBM holdout | LightGBM 训练时按 session 划出的内部验证集结果 | 0.3793 |
+| LightGBM full validation | 在完整 validation 候选集上预测后的最终离线结果 | 0.3858 |
+
+![结果对比](assets/result_comparison.png)
 
 当前主结果是 `LightGBM full validation = 0.3858`。
