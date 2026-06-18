@@ -155,40 +155,42 @@ Top50 candidate oracle 为 `0.4058`，说明当前召回池仍高于最终排序
 
 ## 6. Quick Start
 
+以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。
+
 查看全部 workflow 和 task。`--list` 会按 Data / Recall / Ranker / Evaluation 分组显示，并给出每个入口的示例命令：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --list
+python src\pipeline\run.py --list
 ```
 
 复现当前离线主结果：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow ranker
+python src\pipeline\run.py --workflow ranker
 ```
 
 从 validation 构建召回候选池并分析候选上限：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow validation
+python src\pipeline\run.py --workflow validation
 ```
 
 从 validation 候选池到 LightGBM 精排完整跑一遍：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow all
+python src\pipeline\run.py --workflow all
 ```
 
 生成 test submission：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow test
+python src\pipeline\run.py --workflow test
 ```
 
 也可以单独执行某个 task，例如只评估已有预测：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py evaluate --pred-file ranker_predictions.csv
+python src\pipeline\run.py evaluate --pred-file ranker_predictions.csv
 ```
 
 ## 7. Project Structure

@@ -125,13 +125,13 @@ session_type, labels
 
 ## 5. Pipeline 入口
 
-所有脚本都通过 `src/pipeline/run.py` 统一执行。推荐优先使用 workflow：
+所有脚本都通过 `src/pipeline/run.py` 统一执行。以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。推荐优先使用 workflow：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow validation
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow ranker
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow test
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow all
+python src\pipeline\run.py --workflow validation
+python src\pipeline\run.py --workflow ranker
+python src\pipeline\run.py --workflow test
+python src\pipeline\run.py --workflow all
 ```
 
 其中：
@@ -144,7 +144,7 @@ D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow all
 查看所有 workflow 和 task：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --list
+python src\pipeline\run.py --list
 ```
 
 `--list` 会按 Data / Recall / Ranker / Evaluation 分组显示，并在每一项后给出示例命令。
