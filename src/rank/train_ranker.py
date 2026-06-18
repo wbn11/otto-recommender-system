@@ -57,8 +57,8 @@ def load_lightgbm():
         import lightgbm as lgb
     except ImportError as exc:
         raise ImportError(
-            "lightgbm is not installed. Install it in the OTTO environment first: "
-            "D:\\anaconda3\\envs\\OTTO\\python.exe -m pip install lightgbm"
+            "lightgbm is not installed. Activate the project environment and run "
+            "`python -m pip install lightgbm` or `python -m pip install -r requirements.txt`."
         ) from exc
     return lgb
 
