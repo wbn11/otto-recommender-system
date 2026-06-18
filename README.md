@@ -129,32 +129,40 @@ Top50 candidate oracle 为 `0.4058`，说明当前召回池仍高于最终排序
 
 ## 6. Quick Start
 
-查看全部 pipeline 任务：
+查看全部 workflow 和 task。`--list` 会按 Data / Recall / Ranker / Evaluation 分组显示，并给出每个入口的示例命令：
 
 ```powershell
 D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --list
 ```
 
-构建排序训练数据并训练 LightGBM：
+复现当前离线主结果：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py build-ranker-train-data
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py train-ranker
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow ranker
 ```
 
-生成 validation 排序预测并评估：
+从 validation 构建召回候选池并分析候选上限：
 
 ```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py ranker-predict
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow validation
+```
+
+从 validation 候选池到 LightGBM 精排完整跑一遍：
+
+```powershell
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow all
+```
+
+生成 test submission：
+
+```powershell
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow test
+```
+
+也可以单独执行某个 task，例如只评估已有预测：
+
+```powershell
 D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py evaluate --pred-file ranker_predictions.csv
-```
-
-构建 test submission。以下命令假设已经完成 test events、三路 test 召回和 test recall candidates 构建：
-
-```powershell
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py build-ranker-inference-data
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py ranker-predict --candidates-file test_ranker_data.parquet --test-events-file test_events.parquet --output-file test_ranker_predictions.csv
-D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py build-submission --pred-file test_ranker_predictions.csv
 ```
 
 ## 7. Project Structure

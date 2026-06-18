@@ -127,7 +127,33 @@ Kaggle submission：
 session_type, labels
 ```
 
-## 5. 召回候选池字段
+## 5. Pipeline 入口
+
+所有脚本都通过 `src/pipeline/run.py` 统一执行。推荐优先使用 workflow：
+
+```powershell
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow validation
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow ranker
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow test
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --workflow all
+```
+
+其中：
+
+- `validation`: 构建 validation 召回候选池，并分析 candidate oracle。
+- `ranker`: 构建排序训练数据、训练 LightGBM、生成 validation 预测并评估。
+- `test`: 生成 test 预测和 `submission.csv`。
+- `all`: 执行 `validation + ranker`。
+
+查看所有 workflow 和 task：
+
+```powershell
+D:\anaconda3\envs\OTTO\python.exe src\pipeline\run.py --list
+```
+
+`--list` 会按 Data / Recall / Ranker / Evaluation 分组显示，并在每一项后给出示例命令。
+
+## 6. 召回候选池字段
 
 `build_recall_candidates.py` 合并 popular、covisitation、DSSM 三路召回，输出一行一个候选：
 
@@ -151,7 +177,7 @@ source_count, min_rank, rrf_score, target_type_id
 - `rrf_score`: reciprocal rank fusion 分数。
 - `target_type_id`: `type` 的数值编码，方便 LightGBM 使用。
 
-## 6. 排序训练数据字段
+## 7. 排序训练数据字段
 
 `build_ranker_train_data.py` 在召回候选池基础上增加监督信号和统计特征：
 
@@ -169,7 +195,7 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 - `session_*`: 当前 session 的长度和行为类型计数。
 - `history_*`: 候选 item 是否在当前 session 历史中出现过，以及最近一次出现的位置和类型。
 
-## 7. 模块职责
+## 8. 模块职责
 
 ### 数据层
 
@@ -199,7 +225,7 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 - `evaluate.py`: 评估预测文件的 Recall@20。
 - `build_submission.py`: 生成 Kaggle submission 格式。
 
-## 8. 当前结果
+## 9. 当前结果
 
 | 阶段 | Weighted Recall@20 |
 |---|---:|
@@ -213,7 +239,7 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 
 当前主结果是 `LightGBM full validation = 0.3858`。
 
-## 9. 后续扩展
+## 10. 后续扩展
 
 TIGER 或其他生成式召回可以作为第四路召回源加入。只要输出仍保持：
 
