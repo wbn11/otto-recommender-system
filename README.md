@@ -111,8 +111,8 @@ flowchart TD
     C2 --> D
     C3 --> D
     D --> E["排序特征构建"]
-    F["加载排序模型"] --> G["排序预测"]
-    E --> G
+    E --> F["加载排序模型"]
+    F --> G["排序预测"]
     G --> H["生成提交"]
 
     classDef data fill:#eef6ff,stroke:#60a5fa,color:#0f172a;
