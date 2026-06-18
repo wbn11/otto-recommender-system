@@ -4,6 +4,8 @@
 
 数据集来源：[Kaggle OTTO Recommender System Competition](https://www.kaggle.com/competitions/otto-recommender-system)。
 
+本项目主要用于学习和展示推荐系统完整流程。受本地算力和实验时间限制，当前实验没有使用全部数据进行训练，而是基于训练集中的 `100000` 条 session 构建离线验证，因此下方结果不代表该方法在全量数据上的最佳成绩。项目保留了 test 推理和 submission 生成流程，但最终预测结果未提交到 Kaggle 系统，重点放在打通并解释“召回 - 候选池 - 精排 - 提交”的端到端链路。
+
 当前实验基于训练集中的 `100000` 条 session 数据，最终离线验证结果：
 
 ```text
