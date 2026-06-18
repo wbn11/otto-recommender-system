@@ -62,17 +62,23 @@ orders: 0.60
 | LightGBM holdout | LightGBM 训练时按 session 划出的内部验证集结果 | 0.3793 |
 | LightGBM full validation | 在完整 validation 候选集上预测后的最终离线结果 | 0.3858 |
 
-![结果对比](reports/assets/result_comparison.png)
+<p align="center">
+  <img src="reports/assets/result_comparison.png" alt="结果对比" width="720">
+</p>
 
 ## 4. 工作流程
 
 Validation / training:
 
-![Validation workflow](reports/assets/workflow_validation.png)
+<p align="center">
+  <img src="reports/assets/workflow_validation.png" alt="Validation workflow" width="520">
+</p>
 
 Test / submission:
 
-![Test workflow](reports/assets/workflow_test.png)
+<p align="center">
+  <img src="reports/assets/workflow_test.png" alt="Test workflow" width="520">
+</p>
 
 ## 5. 方法说明
 

@@ -26,7 +26,9 @@ orders: 0.60
 
 validation 有真实未来 label，因此可以做离线评估和排序训练。
 
-![Validation architecture](assets/architecture_validation.png)
+<p align="center">
+  <img src="assets/architecture_validation.png" alt="Validation architecture" width="520">
+</p>
 
 说明：
 
@@ -50,7 +52,9 @@ validation 有真实未来 label，因此可以做离线评估和排序训练。
 
 test 没有真实 label，只执行推理和提交文件生成。
 
-![Test architecture](assets/architecture_test.png)
+<p align="center">
+  <img src="assets/architecture_test.png" alt="Test architecture" width="520">
+</p>
 
 test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：
 
@@ -219,6 +223,8 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 | LightGBM holdout | LightGBM 训练时按 session 划出的内部验证集结果 | 0.3793 |
 | LightGBM full validation | 在完整 validation 候选集上预测后的最终离线结果 | 0.3858 |
 
-![结果对比](assets/result_comparison.png)
+<p align="center">
+  <img src="assets/result_comparison.png" alt="结果对比" width="720">
+</p>
 
 当前主结果是 `LightGBM full validation = 0.3858`。
