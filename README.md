@@ -32,18 +32,18 @@ carts:  0.30
 orders: 0.60
 ```
 
-## 2. Experiment Setting
+## 2. 实验设置
 
-| Setting | Value |
+| 设置项 | 取值 |
 |---|---|
-| Data size | 100000 train sessions |
-| Validation split | session 内按时间顺序 8:2 切分 |
-| History window | 前 80% 作为历史行为 |
-| Future labels | 后 20% 作为 validation labels |
-| Single recall eval | Top20 |
-| Ranker candidate pool | Top50 from covisitation and DSSM |
-| LightGBM split | session-level 8:2 train/holdout split |
-| Final prediction | Top20 for each `(session,type)` |
+| 数据规模 | 训练集中的 100000 条 session |
+| 验证集划分 | 每个 session 内按时间顺序 8:2 切分 |
+| 历史窗口 | 前 80% 作为历史行为 |
+| 未来标签 | 后 20% 作为验证标签 |
+| 单路召回评估 | Top20 |
+| 排序候选池 | 共现召回和 DSSM 使用 Top50 |
+| LightGBM 划分 | 按 session 做 8:2 train/holdout 划分 |
+| 最终预测 | 每个 `(session,type)` 输出 Top20 |
 
 说明：
 
@@ -51,24 +51,24 @@ orders: 0.60
 - LightGBM 排序阶段使用 Top50 候选池，让模型有更大的重排空间。
 - LightGBM 训练时按 session 划分 train/holdout，避免同一个 session 同时出现在训练和验证两边。
 
-## 3. Results
+## 3. 实验结果
 
-Recall baselines are evaluated with Top20 predictions:
+单路召回和固定融合均按 Top20 预测结果评估：
 
-| Method | Weighted Recall@20 |
+| 方法 | Weighted Recall@20 |
 |---|---:|
-| Popular | 0.0096 |
-| Covisitation | 0.2656 |
+| 热门召回 | 0.0096 |
+| 共现召回 | 0.2656 |
 | DSSM | 0.1792 |
-| Fixed Fusion | 0.3028 |
+| 固定权重融合 | 0.3028 |
 
-The ranker is trained on the Top50 recall candidate pool and still outputs Top20 predictions:
+LightGBM 排序使用 Top50 召回候选池训练，最终仍输出 Top20：
 
-| Stage | Meaning | Weighted Recall@20 |
+| 阶段 | 含义 | Weighted Recall@20 |
 |---|---|---:|
-| Candidate Oracle | Upper bound if the best Top20 items could be selected from the candidate pool | 0.4058 |
-| LightGBM Holdout | Score on the 20% session-level holdout split used during ranker training | 0.3793 |
-| LightGBM Full Validation | Final offline score on the full validation candidate set | 0.3858 |
+| 候选池 Oracle | 假设能从候选池中理想选出 Top20 时的召回上限 | 0.4058 |
+| LightGBM Holdout | LightGBM 训练时 session-level holdout 集上的结果 | 0.3793 |
+| LightGBM Full Validation | 在完整 validation 候选集上生成预测后的最终离线结果 | 0.3858 |
 
 ## 4. Workflow
 
