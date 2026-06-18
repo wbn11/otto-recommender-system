@@ -67,7 +67,7 @@ LightGBM 排序使用 Top50 召回候选池训练，最终仍输出 Top20：
 | 阶段 | 含义 | Weighted Recall@20 |
 |---|---|---:|
 | 候选池 Oracle | 假设能从候选池中理想选出 Top20 时的召回上限 | 0.4058 |
-| LightGBM Holdout | LightGBM 训练时 session-level holdout 集上的结果 | 0.3793 |
+| LightGBM 内部验证集 | LightGBM 训练时按 session 划出的 20% 验证集结果 | 0.3793 |
 | LightGBM Full Validation | 在完整 validation 候选集上生成预测后的最终离线结果 | 0.3858 |
 
 ## 4. Workflow
