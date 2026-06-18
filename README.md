@@ -49,55 +49,62 @@ orders: 0.60
 
 ## 3. Results
 
-| Method | Setting | Weighted Recall@20 |
+Recall baselines are evaluated with Top20 predictions:
+
+| Method | Weighted Recall@20 |
+|---|---:|
+| Popular | 0.0096 |
+| Covisitation | 0.2656 |
+| DSSM | 0.1792 |
+| Fixed Fusion | 0.3028 |
+
+The ranker is trained on the Top50 recall candidate pool and still outputs Top20 predictions:
+
+| Stage | Meaning | Weighted Recall@20 |
 |---|---|---:|
-| Popular | Top20 | 0.0096 |
-| Covisitation | Top20 | 0.2656 |
-| DSSM | Top20 | 0.1792 |
-| Fixed Fusion | Top20 | 0.3028 |
-| Candidate Oracle | Top50 candidate pool | 0.4058 |
-| LightGBM Holdout | Top50 pool -> Top20 | 0.3793 |
-| LightGBM Full Validation | Top50 pool -> Top20 | 0.3858 |
+| Candidate Oracle | Upper bound if the best Top20 items could be selected from the candidate pool | 0.4058 |
+| LightGBM Holdout | Score on the 20% session-level holdout split used during ranker training | 0.3793 |
+| LightGBM Full Validation | Final offline score on the full validation candidate set | 0.3858 |
 
 ## 4. Workflow
 
 ```mermaid
-flowchart TD
-    A["Raw train jsonl<br/>100000 sessions"] --> B["Build validation data<br/>session time split 8:2"]
-    B --> C["Train events<br/>history 80%"]
-    B --> D["Validation labels<br/>future 20%"]
+flowchart LR
+    subgraph V["Validation / Training"]
+        direction TB
+        A["Train jsonl<br/>100000 sessions"] --> B["Session time split<br/>history 80% / future 20%"]
+        B --> C["train_events.parquet"]
+        B --> D["valid_labels.parquet"]
+        C --> E["Recall channels<br/>Popular / Covis / DSSM"]
+        E --> F["Top50 recall candidate pool"]
+        C --> G["Ranking features"]
+        D --> G
+        F --> G
+        G --> H["LightGBM LambdaRank<br/>session-level 8:2 split"]
+        H --> I["Top20 validation predictions"]
+        I --> J["Weighted Recall@20<br/>0.3858"]
+    end
 
-    C --> E1["Popular recall"]
-    C --> E2["Co-visitation recall<br/>Top20 for single recall eval<br/>Top50 for candidate pool"]
-    C --> E3["DSSM recall<br/>Top20 for single recall eval<br/>Top50 for candidate pool"]
+    subgraph T["Test / Submission"]
+        direction TB
+        K["Test jsonl"] --> L["test_events.parquet"]
+        L --> M["Recall channels<br/>Popular / Covis / DSSM"]
+        M --> N["Top50 test candidate pool"]
+        N --> O["Inference features<br/>no labels"]
+        H -.->|trained model| O
+        O --> P["Top20 test predictions"]
+        P --> Q["submission.csv"]
+    end
 
-    E1 --> F["Recall predictions"]
-    E2 --> F
-    E3 --> F
+    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
+    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
+    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
+    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
 
-    F --> G["Build recall candidates<br/>popular + covis + DSSM<br/>Top50 candidate pool"]
-    D --> H["Build ranker train data<br/>add labels and features"]
-    G --> H
-
-    H --> I["LightGBM train/holdout split<br/>session-level 8:2"]
-    I --> J["Train LightGBM LambdaRank"]
-    J --> K["Rank validation candidates"]
-    K --> L["Evaluate Weighted Recall@20<br/>final Top20 predictions"]
-
-    M["Raw test jsonl"] --> N["Build test events"]
-    N --> O1["Popular recall"]
-    N --> O2["Co-visitation recall<br/>Top50"]
-    N --> O3["DSSM recall<br/>Top50"]
-
-    O1 --> P["Build test recall candidates"]
-    O2 --> P
-    O3 --> P
-
-    P --> Q["Build ranker inference data<br/>same features, no labels"]
-    J --> R["Load trained LightGBM model"]
-    Q --> S["Rank test candidates"]
-    R --> S
-    S --> T["Build submission<br/>session_type, labels"]
+    class A,B,C,D,K,L data;
+    class E,F,M,N recall;
+    class G,H,O rank;
+    class I,J,P,Q output;
 ```
 
 ## 5. Method Details

@@ -26,36 +26,53 @@ orders: 0.60
 
 validation 有真实未来 label，因此可以做离线评估和排序训练。
 
-```text
-raw train jsonl
-        |
-        v
-build_validation.py
-        |
-        +--> train_events.parquet
-        +--> valid_labels.parquet
-                    |
-                    v
-popular_recall.py
-covisitation_recall.py
-dssm_recall.py
-                    |
-                    v
-build_recall_candidates.py
-                    |
-                    +--> analyze_recall_candidates.py  # 只做离线分析
-                    |
-                    v
-build_ranker_train_data.py
-                    |
-                    v
-train_ranker.py
-                    |
-                    v
-predict_ranker.py
-                    |
-                    v
-evaluate.py
+```mermaid
+flowchart TD
+    subgraph S1["1. Data split"]
+        A["Raw train jsonl<br/>100000 sessions"] --> B["build_validation.py<br/>session time split 8:2"]
+        B --> C["train_events.parquet<br/>history events"]
+        B --> D["valid_labels.parquet<br/>future labels"]
+    end
+
+    subgraph S2["2. Multi-channel recall"]
+        C --> E1["popular_recall.py<br/>global popularity"]
+        C --> E2["build_covis_matrix.py<br/>item co-visitation matrix"]
+        E2 --> E3["covisitation_recall.py<br/>Top50 candidates"]
+        C --> E4["dssm_recall.py<br/>Top50 candidates"]
+    end
+
+    subgraph S3["3. Candidate pool"]
+        E1 --> F["build_recall_candidates.py<br/>merge popular + covis + DSSM"]
+        E3 --> F
+        E4 --> F
+        F --> G["recall_candidates.parquet"]
+    end
+
+    subgraph S4["4. Optional analysis"]
+        G --> H["analyze_recall_candidates.py<br/>candidate oracle"]
+        D --> H
+    end
+
+    subgraph S5["5. Ranker"]
+        G --> I["build_ranker_train_data.py<br/>add labels + features"]
+        C --> I
+        D --> I
+        I --> J["train_ranker.py<br/>LightGBM LambdaRank<br/>session-level 8:2 holdout"]
+        J --> K["predict_ranker.py<br/>Top20 validation predictions"]
+        K --> L["evaluate.py<br/>Weighted Recall@20"]
+    end
+
+    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
+    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
+    classDef candidate fill:#f0fdfa,stroke:#0f766e,color:#0f172a;
+    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
+    classDef eval fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
+
+    class A,B,C,D data;
+    class E1,E2,E3,E4 recall;
+    class F,G candidate;
+    class I,J,K rank;
+    class H,L eval;
 ```
 
 说明：
@@ -68,29 +85,41 @@ evaluate.py
 
 test 没有真实 label，只能做推理和提交文件生成。
 
-```text
-otto-recsys-test.jsonl
-        |
-        v
-build_test_events.py
-        |
-        v
-test_events.parquet
-        |
-        v
-popular / covisitation / DSSM recall with --test-events-file
-        |
-        v
-build_recall_candidates.py
-        |
-        v
-build_ranker_inference_data.py
-        |
-        v
-predict_ranker.py
-        |
-        v
-build_submission.py
+```mermaid
+flowchart TD
+    subgraph T1["1. Build test events"]
+        A["otto-recsys-test.jsonl"] --> B["build_test_events.py"]
+        B --> C["test_events.parquet"]
+    end
+
+    subgraph T2["2. Test recall"]
+        C --> D1["popular_recall.py<br/>--test-events-file"]
+        C --> D2["covisitation_recall.py<br/>--test-events-file, Top50"]
+        C --> D3["dssm_recall.py<br/>--test-events-file, Top50"]
+    end
+
+    subgraph T3["3. Candidate and features"]
+        D1 --> E["build_recall_candidates.py<br/>test candidate pool"]
+        D2 --> E
+        D3 --> E
+        E --> F["build_ranker_inference_data.py<br/>same features, no labels"]
+    end
+
+    subgraph T4["4. Rank and submit"]
+        G["lgbm_ranker.txt<br/>trained model"] --> H["predict_ranker.py<br/>Top20 test predictions"]
+        F --> H
+        H --> I["build_submission.py<br/>session_type, labels"]
+    end
+
+    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
+    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
+    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
+    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
+
+    class A,B,C data;
+    class D1,D2,D3,E recall;
+    class F,G,H rank;
+    class I output;
 ```
 
 test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：
