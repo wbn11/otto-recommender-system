@@ -1,6 +1,6 @@
 # OTTO 多目标推荐系统架构
 
-本文档说明当前项目的主流程、数据契约和各模块职责。项目目标是基于 OTTO 数据完成 `clicks / carts / orders` 三类目标的推荐，评估指标为加权 Recall@20。
+本文档说明当前项目的主流程、关键输入输出格式和各模块职责。项目目标是基于 OTTO 数据完成 `clicks / carts / orders` 三类目标的推荐，评估指标为加权 Recall@20。
 
 ```text
 clicks: 0.10
@@ -28,39 +28,13 @@ validation 有真实未来 label，因此可以做离线评估和排序训练。
 
 ```mermaid
 flowchart TD
-    subgraph S1["1. Data split"]
-        A["Raw train jsonl<br/>100000 sessions"] --> B["build_validation.py<br/>session time split 8:2"]
-        B --> C["train_events.parquet<br/>history events"]
-        B --> D["valid_labels.parquet<br/>future labels"]
-    end
-
-    subgraph S2["2. Multi-channel recall"]
-        C --> E1["popular_recall.py<br/>global popularity"]
-        C --> E2["build_covis_matrix.py<br/>item co-visitation matrix"]
-        E2 --> E3["covisitation_recall.py<br/>Top50 candidates"]
-        C --> E4["dssm_recall.py<br/>Top50 candidates"]
-    end
-
-    subgraph S3["3. Candidate pool"]
-        E1 --> F["build_recall_candidates.py<br/>merge popular + covis + DSSM"]
-        E3 --> F
-        E4 --> F
-        F --> G["recall_candidates.parquet"]
-    end
-
-    subgraph S4["4. Optional analysis"]
-        G --> H["analyze_recall_candidates.py<br/>candidate oracle"]
-        D --> H
-    end
-
-    subgraph S5["5. Ranker"]
-        G --> I["build_ranker_train_data.py<br/>add labels + features"]
-        C --> I
-        D --> I
-        I --> J["train_ranker.py<br/>LightGBM LambdaRank<br/>session-level 8:2 holdout"]
-        J --> K["predict_ranker.py<br/>Top20 validation predictions"]
-        K --> L["evaluate.py<br/>Weighted Recall@20"]
-    end
+    A["数据切分"] --> B["多路召回"]
+    B --> C["候选池合并"]
+    C --> D["候选池分析"]
+    C --> E["训练样本构建"]
+    E --> F["模型训练"]
+    F --> G["排序预测"]
+    G --> H["离线评估"]
 
     classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
     classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
@@ -68,11 +42,11 @@ flowchart TD
     classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
     classDef eval fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
 
-    class A,B,C,D data;
-    class E1,E2,E3,E4 recall;
-    class F,G candidate;
-    class I,J,K rank;
-    class H,L eval;
+    class A data;
+    class B recall;
+    class C candidate;
+    class E,F,G rank;
+    class D,H eval;
 ```
 
 说明：
@@ -87,39 +61,22 @@ test 没有真实 label，只能做推理和提交文件生成。
 
 ```mermaid
 flowchart TD
-    subgraph T1["1. Build test events"]
-        A["otto-recsys-test.jsonl"] --> B["build_test_events.py"]
-        B --> C["test_events.parquet"]
-    end
-
-    subgraph T2["2. Test recall"]
-        C --> D1["popular_recall.py<br/>--test-events-file"]
-        C --> D2["covisitation_recall.py<br/>--test-events-file, Top50"]
-        C --> D3["dssm_recall.py<br/>--test-events-file, Top50"]
-    end
-
-    subgraph T3["3. Candidate and features"]
-        D1 --> E["build_recall_candidates.py<br/>test candidate pool"]
-        D2 --> E
-        D3 --> E
-        E --> F["build_ranker_inference_data.py<br/>same features, no labels"]
-    end
-
-    subgraph T4["4. Rank and submit"]
-        G["lgbm_ranker.txt<br/>trained model"] --> H["predict_ranker.py<br/>Top20 test predictions"]
-        F --> H
-        H --> I["build_submission.py<br/>session_type, labels"]
-    end
+    A["测试数据构建"] --> B["多路召回"]
+    B --> C["候选池合并"]
+    C --> D["推理特征构建"]
+    E["加载排序模型"] --> F["排序预测"]
+    D --> F
+    F --> G["生成提交"]
 
     classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
     classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
     classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
     classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
 
-    class A,B,C data;
-    class D1,D2,D3,E recall;
-    class F,G,H rank;
-    class I output;
+    class A data;
+    class B,C recall;
+    class D,E,F rank;
+    class G output;
 ```
 
 test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：
@@ -130,7 +87,9 @@ session,carts
 session,orders
 ```
 
-## 4. 数据契约
+## 4. 关键输入输出格式
+
+这里的“格式”指每类中间文件必须包含哪些列。只要字段名和含义保持一致，各模块就可以稳定衔接。
 
 训练事件：
 
@@ -267,13 +226,3 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 | LightGBM full validation | 0.3858 |
 
 当前主结果是 `LightGBM full validation = 0.3858`。
-
-## 10. 后续扩展
-
-TIGER 或其他生成式召回可以作为第四路召回源加入。只要输出仍保持：
-
-```text
-session,type,predictions
-```
-
-就可以接入 `build_recall_candidates.py`，再进入现有 LightGBM 精排流程。

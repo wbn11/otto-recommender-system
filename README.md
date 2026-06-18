@@ -2,6 +2,8 @@
 
 基于 OTTO Recommender Systems 数据集构建的多目标推荐系统，目标是为每个 session 分别预测 `clicks`、`carts`、`orders` 三类行为的 Top20 item。项目实现了从多路召回、候选池构建到 LightGBM 精排和 test submission 的完整推荐链路。
 
+数据集来源：[Kaggle OTTO Recommender System Competition](https://www.kaggle.com/competitions/otto-recommender-system)。
+
 当前实验基于训练集中的 `100000` 条 session 数据，最终离线验证结果：
 
 ```text
@@ -68,43 +70,50 @@ The ranker is trained on the Top50 recall candidate pool and still outputs Top20
 
 ## 4. Workflow
 
+Validation / training:
+
 ```mermaid
-flowchart LR
-    subgraph V["Validation / Training"]
-        direction TB
-        A["Train jsonl<br/>100000 sessions"] --> B["Session time split<br/>history 80% / future 20%"]
-        B --> C["train_events.parquet"]
-        B --> D["valid_labels.parquet"]
-        C --> E["Recall channels<br/>Popular / Covis / DSSM"]
-        E --> F["Top50 recall candidate pool"]
-        C --> G["Ranking features"]
-        D --> G
-        F --> G
-        G --> H["LightGBM LambdaRank<br/>session-level 8:2 split"]
-        H --> I["Top20 validation predictions"]
-        I --> J["Weighted Recall@20<br/>0.3858"]
-    end
+flowchart TD
+    A["原始训练数据"] --> B["验证集构建"]
+    B --> C["多路召回"]
+    C --> D["候选池合并"]
+    D --> E["排序特征构建"]
+    E --> F["LightGBM 训练"]
+    F --> G["验证预测"]
+    G --> H["离线评估"]
 
-    subgraph T["Test / Submission"]
-        direction TB
-        K["Test jsonl"] --> L["test_events.parquet"]
-        L --> M["Recall channels<br/>Popular / Covis / DSSM"]
-        M --> N["Top50 test candidate pool"]
-        N --> O["Inference features<br/>no labels"]
-        H -.->|trained model| O
-        O --> P["Top20 test predictions"]
-        P --> Q["submission.csv"]
-    end
+    classDef data fill:#eef6ff,stroke:#60a5fa,color:#0f172a;
+    classDef recall fill:#f0fdf4,stroke:#4ade80,color:#0f172a;
+    classDef rank fill:#fff7ed,stroke:#fb923c,color:#0f172a;
+    classDef output fill:#f5f3ff,stroke:#a78bfa,color:#0f172a;
 
-    classDef data fill:#eaf4ff,stroke:#3b82f6,color:#0f172a;
-    classDef recall fill:#ecfdf3,stroke:#16a34a,color:#0f172a;
-    classDef rank fill:#fff7ed,stroke:#f97316,color:#0f172a;
-    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
+    class A,B data;
+    class C,D recall;
+    class E,F rank;
+    class G,H output;
+```
 
-    class A,B,C,D,K,L data;
-    class E,F,M,N recall;
-    class G,H,O rank;
-    class I,J,P,Q output;
+Test / submission:
+
+```mermaid
+flowchart TD
+    A["原始测试数据"] --> B["测试数据构建"]
+    B --> C["多路召回"]
+    C --> D["候选池合并"]
+    D --> E["排序特征构建"]
+    F["加载排序模型"] --> G["排序预测"]
+    E --> G
+    G --> H["生成提交"]
+
+    classDef data fill:#eef6ff,stroke:#60a5fa,color:#0f172a;
+    classDef recall fill:#f0fdf4,stroke:#4ade80,color:#0f172a;
+    classDef rank fill:#fff7ed,stroke:#fb923c,color:#0f172a;
+    classDef output fill:#f5f3ff,stroke:#a78bfa,color:#0f172a;
+
+    class A,B data;
+    class C,D recall;
+    class E,F,G rank;
+    class H output;
 ```
 
 ## 5. Method Details
@@ -204,7 +213,7 @@ outputs/    parquet, csv, pkl, model artifacts
 
 ## 9. Future Work
 
-- 接入 TIGER 或其他生成式召回，作为第四路候选源。
+- 补充更多召回源，提高候选池覆盖率。
 - 做更细的 ranker 特征消融和参数搜索。
 - 优化全量 test 推理性能。
 - 增加实验可视化报告。
