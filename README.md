@@ -32,7 +32,7 @@ carts:  0.30
 orders: 0.60
 ```
 
-## 2. 实验设置
+## 2. Experimental Setup
 
 | 设置项 | 取值 |
 |---|---|
@@ -51,7 +51,7 @@ orders: 0.60
 - LightGBM 排序阶段使用 Top50 候选池，让模型有更大的重排空间。
 - LightGBM 训练时按 session 划分 train/holdout，避免同一个 session 同时出现在训练和验证两边。
 
-## 3. 实验结果
+## 3. Experimental Results
 
 单路召回和固定融合均按 Top20 预测结果评估：
 
