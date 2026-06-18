@@ -61,27 +61,13 @@ flowchart TD
 
 ### 三路召回实现
 
-当前项目的召回不是直接调用黑盒库，而是分别实现了三种互补的候选生成方式：
+当前项目的召回由三路互补方法组成，输出格式统一为 `session,type,predictions`，便于后续直接合并候选池：
 
-- 热门召回：`popular_recall.py` 按行为类型统计训练历史中的高频 item，分别为 `clicks / carts / orders` 生成热门榜。如果某个类型不足 TopK，会用全局热门 item 补齐。它主要提供稳定兜底，对短 session 更有帮助。
-- 共现召回：`build_covis_matrix.py` 先按 session 时间顺序取最近一段行为，统计同一 session 内 item 两两共现次数，并为每个 item 保存 TopK 邻居；`covisitation_recall.py` 再遍历当前 session 的历史 item，越靠近当前时刻的 item 权重越高，用 `1 / position` 衰减后累加邻居共现分数，最终按分数取 TopK。
-- DSSM 召回：`dssm_recall.py` 加载训练好的 DSSM 模型和 `item2id` 映射，先把全量 item embedding 归一化；推理时把 session 历史 item 和行为 type 编码成 session 向量，再结合目标 type 生成 `clicks / carts / orders` 对应的 session 表征，与全量 item embedding 做相似度检索，取 TopK 作为候选。
+- 热门召回：按 `clicks / carts / orders` 分别统计高频 item，生成 type-specific 热门榜；如果某类不足 TopK，用全局热门补齐，主要作为短 session 的兜底候选。
+- 共现召回：先统计 session 内 item 两两共现并保存 item TopK 邻居；召回时按 session 历史从近到远用 `1 / position` 加权累加邻居分数。它本身不区分目标 type，同一个 session 的共现候选会复用到三类目标。
+- DSSM 召回：使用 type-aware DSSM，把 session 历史 item 和行为 type 编码成 session 向量，再结合目标 type 与全量 item embedding 做相似度检索。同一个 session 在 `clicks / carts / orders` 下可以得到不同 DSSM 候选。
 
-这三路召回的输出统一为：
-
-```text
-session, type, predictions
-```
-
-因此后续可以直接进入 `build_recall_candidates.py` 做候选池合并。
-
-多目标处理方式：
-
-- 热门召回是 type-specific 的：它会分别统计 `clicks / carts / orders` 的热门 item，因此三类目标的热门候选可以不同。
-- 共现召回是 session-based 的：它根据当前 session 的历史 item 生成一组共现候选，再复用到该 session 的 `clicks / carts / orders` 三类目标。共现矩阵本身不区分目标 type，主要负责提供基于行为序列的候选覆盖。
-- DSSM 召回是 type-aware 的：训练和推理都会使用行为 type embedding。推理时同一个 session 会结合不同目标 type 生成不同的 session 表征，因此 `clicks / carts / orders` 可以得到不同的 DSSM 候选。
-
-这个设计让三路召回各自承担不同角色：热门召回提供分类型兜底，共现召回提供稳定的 session 相邻商品覆盖，DSSM 召回补充带目标类型信息的向量召回。
+这个设计让热门召回提供分类型兜底，共现召回提供稳定的 session 相邻商品覆盖，DSSM 召回补充带目标类型信息的向量候选。
 
 ## 3. Test / Submission 流程
 
