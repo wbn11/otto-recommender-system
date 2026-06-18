@@ -77,8 +77,12 @@ Validation / training:
 ```mermaid
 flowchart TD
     A["原始训练数据"] --> B["验证集构建"]
-    B --> C["多路召回"]
-    C --> D["候选池合并"]
+    B --> C1["热门召回"]
+    B --> C2["共现召回"]
+    B --> C3["DSSM 召回"]
+    C1 --> D["候选池合并"]
+    C2 --> D
+    C3 --> D
     D --> E["排序特征构建"]
     E --> F["LightGBM 训练"]
     F --> G["验证预测"]
@@ -90,7 +94,7 @@ flowchart TD
     classDef output fill:#f5f3ff,stroke:#a78bfa,color:#0f172a;
 
     class A,B data;
-    class C,D recall;
+    class C1,C2,C3,D recall;
     class E,F rank;
     class G,H output;
 ```
@@ -100,8 +104,12 @@ Test / submission:
 ```mermaid
 flowchart TD
     A["原始测试数据"] --> B["测试数据构建"]
-    B --> C["多路召回"]
-    C --> D["候选池合并"]
+    B --> C1["热门召回"]
+    B --> C2["共现召回"]
+    B --> C3["DSSM 召回"]
+    C1 --> D["候选池合并"]
+    C2 --> D
+    C3 --> D
     D --> E["排序特征构建"]
     F["加载排序模型"] --> G["排序预测"]
     E --> G
@@ -113,7 +121,7 @@ flowchart TD
     classDef output fill:#f5f3ff,stroke:#a78bfa,color:#0f172a;
 
     class A,B data;
-    class C,D recall;
+    class C1,C2,C3,D recall;
     class E,F,G rank;
     class H output;
 ```

@@ -28,8 +28,12 @@ validation 有真实未来 label，因此可以做离线评估和排序训练。
 
 ```mermaid
 flowchart TD
-    A["数据切分"] --> B["多路召回"]
-    B --> C["候选池合并"]
+    A["数据切分"] --> B1["热门召回"]
+    A --> B2["共现召回"]
+    A --> B3["DSSM 召回"]
+    B1 --> C["候选池合并"]
+    B2 --> C
+    B3 --> C
     C --> D["候选池分析"]
     C --> E["训练样本构建"]
     E --> F["模型训练"]
@@ -43,7 +47,7 @@ flowchart TD
     classDef eval fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
 
     class A data;
-    class B recall;
+    class B1,B2,B3 recall;
     class C candidate;
     class E,F,G rank;
     class D,H eval;
@@ -61,8 +65,12 @@ test 没有真实 label，只能做推理和提交文件生成。
 
 ```mermaid
 flowchart TD
-    A["测试数据构建"] --> B["多路召回"]
-    B --> C["候选池合并"]
+    A["测试数据构建"] --> B1["热门召回"]
+    A --> B2["共现召回"]
+    A --> B3["DSSM 召回"]
+    B1 --> C["候选池合并"]
+    B2 --> C
+    B3 --> C
     C --> D["推理特征构建"]
     E["加载排序模型"] --> F["排序预测"]
     D --> F
@@ -74,7 +82,7 @@ flowchart TD
     classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
 
     class A data;
-    class B,C recall;
+    class B1,B2,B3,C recall;
     class D,E,F rank;
     class G output;
 ```
