@@ -1,3 +1,9 @@
+"""评估多目标推荐结果。
+
+读取预测文件和 validation labels，分别计算 clicks/carts/orders 的 Recall@20，
+并按 OTTO 权重汇总为 weighted score。
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -86,6 +92,7 @@ def add_recall_column(labels_df, predictions_df, k):
     recalls = []
 
     for _, row in merged.iterrows():
+        # OTTO caps each row denominator at k even when more labels exist.
         true_items = set(parse_items(row["labels"]))
         pred_items = parse_items(row["predictions"])[:k]
         denominator = min(len(true_items), k)

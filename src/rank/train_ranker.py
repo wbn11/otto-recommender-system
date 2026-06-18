@@ -1,3 +1,9 @@
+"""训练 LightGBM LambdaRank 排序模型。
+
+读取带 label 的候选训练数据，按 session 切分 train/holdout，
+训练排序模型并输出模型、特征重要性和 holdout 预测。
+"""
+
 import argparse
 import gc
 import pickle
@@ -67,6 +73,7 @@ def split_sessions(candidates, valid_ratio, seed):
     sessions = candidates["session"].drop_duplicates().to_numpy()
     rng = np.random.default_rng(seed)
     rng.shuffle(sessions)
+    # Split by session to prevent the same session from leaking across train/valid.
     valid_size = max(1, int(len(sessions) * valid_ratio))
     valid_sessions = set(int(session) for session in sessions[:valid_size])
     return valid_sessions
@@ -74,6 +81,7 @@ def split_sessions(candidates, valid_ratio, seed):
 
 def prepare_lgb_dataset(lgb, df, feature_columns):
     df = df.sort_values(["session", "type"], kind="mergesort")
+    # LightGBM ranking groups correspond to one (session, type) candidate list.
     groups = df.groupby(["session", "type"], sort=False, observed=True).size().to_numpy()
     features = df[feature_columns]
     labels = df["label"].astype("int8", copy=False)
@@ -132,6 +140,7 @@ def main(argv=None):
     if args.lambdarank_truncation_level:
         params["lambdarank_truncation_level"] = args.lambdarank_truncation_level
 
+    # Early stopping uses the session-level holdout split.
     model = lgb.train(
         params=params,
         train_set=train_data,
@@ -152,6 +161,7 @@ def main(argv=None):
     importance.to_csv(output_dir / args.importance_file, index=False)
 
     valid_df["ranker_score"] = model.predict(valid_df[feature_columns].fillna(0), num_iteration=model.best_iteration)
+    # Save holdout predictions so the offline score can be inspected later.
     valid_labels = labels[labels["session"].isin(valid_sessions)].copy()
     valid_predictions = build_predictions_from_scores(valid_df, valid_labels, "ranker_score", args.k)
     valid_labels.to_parquet(output_dir / args.valid_labels_file, index=False)

@@ -1,3 +1,9 @@
+"""训练 type-aware DSSM 召回模型。
+
+将 session 历史 item 和行为类型编码为 session 向量，
+用 batch 内负样本学习 item embedding，供后续向量召回使用。
+"""
+
 import argparse
 import pickle
 import random
@@ -95,21 +101,25 @@ class DSSM(nn.Module):
         return F.normalize(item_emb, p=2, dim=1)
 
     def encode_session(self, histories, history_types, target_types):
+        # Combine item identity and behavior type in the sequence representation.
         history_emb = self.item_embedding(histories) + self.type_embedding(history_types)
         mask = (histories != 0).float()
 
+        # Later actions get larger weights because they are closer to the target.
         seq_len = histories.size(1)
         weights = torch.arange(1, seq_len + 1, device=histories.device, dtype=torch.float).unsqueeze(0)
         weights = weights * mask
         weights = weights / weights.sum(dim=1, keepdim=True).clamp(min=1e-8)
 
         session_emb = (history_emb * weights.unsqueeze(-1)).sum(dim=1)
+        # Inject target type so clicks/carts/orders can produce different recall vectors.
         session_emb = session_emb + self.type_embedding(target_types)
         return F.normalize(session_emb, p=2, dim=1)
 
     def forward(self, histories, history_types, targets, target_types):
         session_emb = self.encode_session(histories, history_types, target_types)
         target_emb = self.encode_item(targets)
+        # In-batch targets act as negatives for each other.
         scores = session_emb @ target_emb.T
         return scores / 0.1
 
@@ -137,6 +147,7 @@ def sample_pair_indices(sessions, max_pairs, seed):
     total_pairs = sum(pair_counts)
 
     if max_pairs and max_pairs < total_pairs:
+        # Sample over flattened pair offsets to avoid materializing all pairs first.
         sampled_offsets = sorted(random.Random(seed).sample(range(total_pairs), max_pairs))
         pair_indices = []
         offset_cursor = 0
@@ -186,6 +197,7 @@ def collate_fn(batch):
     sample_weights = [sample[4] for sample in batch]
 
     max_len = max(len(history) for history in histories)
+    # Left padding keeps the most recent actions aligned at the sequence end.
     padded_histories = [[0] * (max_len - len(history)) + history for history in histories]
     padded_history_types = [[0] * (max_len - len(types)) + types for types in history_types]
 
@@ -248,6 +260,7 @@ def main(argv=None):
 
             scores = model(histories, history_types, targets, target_types)
             loss_per_sample = criterion(scores, labels)
+            # Normalize by weight sum so batch composition does not change loss scale.
             loss = (loss_per_sample * sample_weights).sum() / sample_weights.sum().clamp(min=1e-8)
 
             optimizer.zero_grad()

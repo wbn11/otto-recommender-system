@@ -3,6 +3,12 @@
 Returns ``{}`` when the config file or PyYAML is unavailable, so every caller
 can fall back to its own hard-coded defaults and keep working.
 """
+"""读取项目配置。
+
+统一从 configs/default.yaml 加载参数，
+供数据构建、召回、DSSM 和评估脚本复用。
+"""
+
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]

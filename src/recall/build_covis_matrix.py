@@ -1,3 +1,9 @@
+"""构建 item co-visitation 矩阵。
+
+统计同一 session 内 item 两两共现次数，
+为每个 item 保存共现次数最高的 TopK 邻居。
+"""
+
 import argparse
 import pickle
 import sys
@@ -51,6 +57,7 @@ def build_covis_topk(train_events, session_limit, top_k):
 
     print("Building multi-target covis matrix...")
     for _, group in tqdm(groups, total=train_events["session"].nunique()):
+        # Limit each session to recent items to control pair explosion and emphasize recency.
         aids = group["aid"].tolist()[-session_limit:]
         for i, aid1 in enumerate(aids):
             for aid2 in aids[i + 1:]:
@@ -63,6 +70,7 @@ def build_covis_topk(train_events, session_limit, top_k):
     print("Building topk...")
     covis_topk = {}
     for aid, neighbors in tqdm(covis.items()):
+        # Store only strongest neighbors; recall does not need the full sparse matrix.
         covis_topk[aid] = sorted(neighbors.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
     return covis_topk

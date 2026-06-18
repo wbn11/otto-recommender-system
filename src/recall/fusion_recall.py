@@ -1,3 +1,9 @@
+"""融合多路召回结果。
+
+读取 popular、co-visitation、DSSM 预测，
+使用 reciprocal rank 权重融合并输出固定融合基线。
+"""
+
 import argparse
 import sys
 from collections import defaultdict
@@ -109,10 +115,12 @@ def load_inputs(output_dir, args):
 
 def add_source_scores(items, source_weight, scores):
     for rank, item in enumerate(items):
+        # Reciprocal rank rewards high-ranked items while allowing multi-source accumulation.
         scores[item] += source_weight / (rank + 1)
 
 
 def build_fallback_items(source_predictions):
+    # A simple fallback prevents empty rows when one source misses a session.
     for source_name in ("popular", "dssm", "covis"):
         for items in source_predictions[source_name].values():
             if items:
@@ -153,6 +161,7 @@ def fuse_predictions(target_rows, source_predictions, weights, k):
         for source_name, source_weight in weights.items():
             add_source_scores(source_predictions[source_name].get(key, []), source_weight, scores)
 
+        # Final order is determined only by fused source scores.
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         fused = [item for item, _ in ranked[:k]]
 

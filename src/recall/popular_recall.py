@@ -1,3 +1,9 @@
+"""生成热门召回结果。
+
+按 clicks/carts/orders 分别统计热门 item，
+为每个目标行输出 type-specific 热门候选。
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -69,6 +75,7 @@ def build_type_popular_items(train_events, k):
     popular_by_type = {}
 
     for event_type in EVENT_TYPES:
+        # Build a separate popularity list for each target type.
         type_items = (
             train_events.loc[train_events["type"] == event_type, "aid"]
             .value_counts()
@@ -85,6 +92,7 @@ def fill_to_k(items, fallback_items, k):
     filled = []
     seen = set()
 
+    # Global popularity keeps short or sparse target types from returning too few items.
     for item in items + fallback_items:
         if len(filled) >= k:
             break

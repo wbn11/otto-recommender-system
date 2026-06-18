@@ -1,3 +1,9 @@
+"""构建 LightGBM 推理特征数据。
+
+读取 test 召回候选池和 test events，
+补充与训练阶段一致的统计特征和 session history 特征。
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -47,8 +53,10 @@ def build_ranker_inference_data(candidates, events):
     if duplicate_count:
         raise ValueError(f"Recall candidates contain duplicate (session,type,aid) rows: {duplicate_count:,}")
     if "label" in candidates.columns:
+        # Inference data must not carry validation labels.
         candidates = candidates.drop(columns=["label"])
 
+    # Reuse the same feature builders as training to keep schemas aligned.
     candidates = add_stat_features(candidates, events)
     candidates = add_history_features(candidates, events)
     candidates = cast_existing_feature_dtypes(candidates)

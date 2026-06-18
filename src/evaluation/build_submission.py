@@ -1,3 +1,9 @@
+"""生成 Kaggle submission 文件。
+
+读取 session/type/predictions 格式的测试预测，
+转换为 Kaggle 要求的 session_type/labels 格式。
+"""
+
 import argparse
 from pathlib import Path
 
@@ -28,6 +34,7 @@ def build_submission(predictions, k):
     if missing_columns:
         raise ValueError(f"predictions missing columns: {sorted(missing_columns)}")
 
+    # Kaggle expects the target type to be encoded in one session_type column.
     submission = pd.DataFrame({
         "session_type": predictions["session"].astype(str) + "_" + predictions["type"].astype(str),
         "labels": predictions["predictions"].apply(lambda value: normalize_prediction_items(value, k)),

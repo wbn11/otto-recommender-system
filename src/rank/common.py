@@ -1,3 +1,10 @@
+"""排序模块公共工具。
+
+集中管理召回源配置、特征列选择、预测行构建和离线评估函数，
+供 LightGBM 训练与预测脚本复用。
+主要被排序训练数据构建、推理数据构建、ranker 训练和 ranker 预测脚本使用。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,10 +82,12 @@ def load_prediction_map(output_dir, file_name, k):
 
 
 def get_feature_columns(df):
+    # ID columns identify the training row but should not be used as model features.
     return [col for col in df.columns if col not in ID_COLUMNS]
 
 
 def build_predictions_from_scores(candidates, labels, score_col, k):
+    # Stable sorting keeps tie-breaking deterministic across runs.
     ranked = candidates.sort_values(
         ["session", "type", score_col, "aid"],
         ascending=[True, True, False, True],
@@ -106,6 +115,7 @@ def evaluate_predictions(labels, predictions, k):
         denominator = 0
 
         for _, row in type_df.iterrows():
+            # Reuse OTTO weighted Recall@20 logic for holdout monitoring.
             true_items = set(parse_items(row["labels"]))
             pred_items = parse_items(row["predictions"])[:k]
             hits += len(true_items.intersection(pred_items))

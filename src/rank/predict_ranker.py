@@ -1,3 +1,9 @@
+"""使用 LightGBM 排序模型生成预测。
+
+读取候选特征和已训练模型，对每个候选 item 打分，
+并按目标行输出 Top20 predictions。
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -57,10 +63,12 @@ def main(argv=None):
     model = lgb.Booster(model_file=str(model_path))
     feature_columns = model.feature_name()
 
+    # Prediction data must match the feature schema used during training.
     missing_features = set(feature_columns) - set(candidates.columns)
     if missing_features:
         raise ValueError(f"Candidates missing model features: {sorted(missing_features)}")
 
+    # Higher ranker_score means the candidate should appear earlier in Top20.
     candidates["ranker_score"] = model.predict(
         candidates[feature_columns].fillna(0),
         num_iteration=model.best_iteration,

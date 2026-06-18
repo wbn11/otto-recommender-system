@@ -1,3 +1,9 @@
+"""构建离线验证数据。
+
+读取 OTTO train jsonl，按 session 内时间顺序切分历史行为和未来标签，
+输出训练事件表和 validation labels。
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -45,7 +51,7 @@ def parse_args(argv=None):
 
 
 def load_events(data_file, nrows=None):
-    # polars 向量化展开 events 列(替代逐行 iterrows),再交给 pandas 做后续切分
+    # Use Polars to expand nested events efficiently before session-level splitting.
     lf = pl.scan_ndjson(data_file)
     if nrows is not None:
         lf = lf.head(nrows)
@@ -60,6 +66,7 @@ def load_events(data_file, nrows=None):
 
 def split_history_future(group, history_ratio):
     group = group.sort_values("ts")
+    # Keep at least one event on each side so every retained session has history and future.
     split_idx = int(len(group) * history_ratio)
     split_idx = max(1, min(split_idx, len(group) - 1))
     return group.iloc[:split_idx], group.iloc[split_idx:]
@@ -93,6 +100,7 @@ def build_validation(events_df, history_ratio):
         train_parts.append(history)
 
         for event_type in EVENT_TYPES:
+            # Labels keep first occurrence order, matching Recall@20 semantics.
             labels = unique_in_order(future.loc[future["type"] == event_type, "aid"].tolist())
             if not labels:
                 continue

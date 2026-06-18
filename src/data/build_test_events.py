@@ -1,3 +1,9 @@
+"""构建测试集事件表。
+
+读取 OTTO test jsonl，展开嵌套 events 字段，
+输出与训练事件一致的 session/aid/ts/type parquet。
+"""
+
 import argparse
 from pathlib import Path
 
@@ -29,6 +35,7 @@ def load_test_events(data_file, nrows):
     if nrows > 0:
         lf = lf.head(nrows)
 
+    # Test inference uses the same flat event schema as validation history.
     return (
         lf.explode("events")
         .unnest("events")

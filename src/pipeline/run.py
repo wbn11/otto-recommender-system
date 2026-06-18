@@ -1,3 +1,9 @@
+"""统一项目命令入口。
+
+注册数据构建、召回、排序、评估和 test submission 任务，
+并提供 validation/ranker/test/all 等流程级 workflow。
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -268,6 +274,7 @@ def run_workflow(workflow_name: str) -> None:
     print(f"{workflow.description}")
 
     for index, step in enumerate(workflow.steps, start=1):
+        # Workflows call the same task runner as single-task execution.
         args_text = " ".join(step.args)
         command_text = f"{step.task_name} {args_text}".strip()
         print(f"\n[{index}/{len(workflow.steps)}] {command_text}")

@@ -1,3 +1,10 @@
+"""统一构建多目标预测行。
+
+从 validation labels 或 test events 生成 session/type 目标行，
+并提供预测去重、截断和按目标行补齐的工具函数。
+主要被三路召回、召回融合、ranker 预测和 submission 生成脚本复用。
+"""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -24,6 +31,7 @@ def build_test_target_rows(events_df: pd.DataFrame) -> pd.DataFrame:
     if "session" not in events_df.columns:
         raise ValueError("events missing columns: ['session']")
 
+    # Test has no labels, so every session must predict all three target types.
     sessions = events_df["session"].drop_duplicates().tolist()
     rows = [
         {"session": session, "type": event_type}
@@ -80,6 +88,7 @@ def order_predictions_by_target_rows(predictions: pd.DataFrame, target_rows: pd.
 
     ordered_targets = select_target_columns(target_rows, "target rows")
     normalized = predictions[PREDICTION_COLUMNS].copy()
+    # Normalize before ordering so duplicated or overlong prediction rows cannot leak through.
     normalized["predictions"] = normalized["predictions"].apply(lambda value: normalize_prediction_items(value, k))
     normalized = normalized.drop_duplicates(TARGET_COLUMNS, keep="first")
 

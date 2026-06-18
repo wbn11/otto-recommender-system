@@ -1,3 +1,9 @@
+"""分析召回候选池上限。
+
+读取候选池和 validation labels，计算如果从候选池中理想选择 Top20 时，
+各目标类型能够达到的 oracle Recall@20。
+"""
+
 import argparse
 from pathlib import Path
 
@@ -78,6 +84,7 @@ def analyze_oracle(candidates, labels, k):
         covered_groups = 0
 
         for session, label_value in zip(type_labels["session"], type_labels["labels"]):
+            # Oracle ignores ranking and only measures whether labels are covered by candidates.
             true_items = set(parse_items(label_value))
             candidate_items = candidate_sets.get((int(session), event_type), set())
             hit_count = len(true_items.intersection(candidate_items))

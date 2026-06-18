@@ -1,3 +1,9 @@
+"""生成 DSSM 向量召回结果。
+
+加载 type-aware DSSM 模型，把目标行对应的 session 编码成向量，
+与全量 item embedding 做相似度检索并输出候选。
+"""
+
 import argparse
 import pickle
 import sys
@@ -87,6 +93,7 @@ def build_session_histories(train_events, item2id):
         history = []
         history_types = []
         for aid, event_type in zip(group["aid"], group["type"]):
+            # Skip items unseen during DSSM training because they have no embedding id.
             item_id = item2id.get(aid)
             if item_id is None:
                 skipped_items += 1
@@ -122,6 +129,7 @@ def recommend_rows(model, item_embs, id2item, session_histories, session_history
         target_type_ids = []
 
         for session, event_type in batch_rows:
+            # Target type makes the same session produce different recall vectors.
             history = session_histories.get(session, [])
             if not history:
                 rows.append({"session": session, "type": event_type, "predictions": ""})
@@ -143,6 +151,7 @@ def recommend_rows(model, item_embs, id2item, session_histories, session_history
         with torch.no_grad():
             session_embs = model.encode_session(histories, history_types, target_types)
             scores = session_embs @ item_embs.T
+            # Item id 0 is padding and must never be recommended.
             scores[:, 0] = -1e9
             topk_values, topk_indices = torch.topk(scores, k=topk, dim=1)
             topk_scores = topk_values.cpu().tolist()
@@ -186,6 +195,7 @@ def main(argv=None):
     print(f"device={device}")
     model = load_model(model_path, item2id, args, device)
     with torch.no_grad():
+        # Item embeddings are normalized once and reused for all session batches.
         item_embs = F.normalize(model.item_embedding.weight, p=2, dim=1)
 
     session_histories, session_history_types, skipped_items = build_session_histories(train_events, item2id)

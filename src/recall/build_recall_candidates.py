@@ -1,3 +1,9 @@
+"""合并多路召回候选。
+
+读取 popular、co-visitation、DSSM 预测结果，
+按 session/type/aid 合并为排序候选池并生成召回源特征。
+"""
+
 import argparse
 import gc
 import sys
@@ -80,6 +86,7 @@ def add_source_candidates(candidates, predictions, source_name, k):
     ):
         session = int(session)
         for rank, aid in enumerate(parse_unique_prediction_items(prediction)[:k], start=1):
+            # One candidate row can accumulate features from multiple recall sources.
             key = (session, event_type, int(aid))
             candidate = candidates.setdefault(key, empty_candidate_features())
             candidate[from_col] = 1
@@ -109,6 +116,7 @@ def add_normalized_raw_scores(candidates, details, source_name):
     min_scores = grouped_scores.transform("min")
     max_scores = grouped_scores.transform("max")
     denominator = max_scores - min_scores
+    # Normalize raw source scores within each target row so LightGBM can compare them safely.
     details[raw_norm_column] = np.where(
         denominator > 0,
         (details[score_column] - min_scores) / denominator,
@@ -187,6 +195,7 @@ def candidates_to_frame(candidates, include_raw_score_norm):
     type_codes = np.zeros(row_count, dtype=np.int8)
 
     for idx, ((session, event_type, aid), features) in enumerate(candidates.items()):
+        # RRF-style source features summarize how many channels recalled the same item.
         source_flags = [features[f"from_{source_name}"] for source_name in SOURCE_FILES]
         ranks = [
             features[f"{source_name}_rank"]

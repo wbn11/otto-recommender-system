@@ -1,3 +1,9 @@
+"""构建 LightGBM 排序训练数据。
+
+读取召回候选池、训练历史和验证标签，为每个候选 item 打 label，
+并补充统计特征和 session history 特征。
+"""
+
 import argparse
 import sys
 from collections import defaultdict
@@ -52,6 +58,7 @@ def load_inputs(output_dir, args):
 def build_positive_labels(labels):
     rows = defaultdict(list)
 
+    # Expand each validation label into positive (session, type, aid) triples.
     for session, event_type, label_value in zip(labels["session"], labels["type"], labels["labels"]):
         target_type_id = TYPE2ID.get(event_type, 0)
         if not target_type_id:
@@ -75,6 +82,7 @@ def build_positive_labels(labels):
 
 def add_labels(candidates, labels):
     positives = build_positive_labels(labels)
+    # Keep all recalled candidates; candidates not in positives become negatives.
     candidates = candidates.merge(
         positives,
         on=["session", "target_type_id", "aid"],
@@ -86,6 +94,7 @@ def add_labels(candidates, labels):
 
 
 def build_event_stats(train_events):
+    # Global item/session counts are simple but strong ranking priors.
     item_counts = train_events.groupby("aid", sort=False).size()
     item_type_counts = train_events.groupby(["aid", "type"], sort=False).size().unstack(fill_value=0)
     session_counts = train_events.groupby("session", sort=False).size()
@@ -122,6 +131,7 @@ def build_history_features(train_events):
     events["event_pos"] = events.groupby("session", sort=False).cumcount()
     events["session_len_for_pos"] = events.groupby("session", sort=False)["aid"].transform("size")
 
+    # Count repeated interactions and keep the latest occurrence per session-item pair.
     counts = (
         events.groupby(["session", "aid"], sort=False)
         .size()

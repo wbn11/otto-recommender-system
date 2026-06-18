@@ -1,3 +1,9 @@
+"""生成 co-visitation 召回结果。
+
+读取 session 历史和 item 共现 TopK 矩阵，
+用最近行为加权累加邻居分数，为目标行输出候选。
+"""
+
 import argparse
 import pickle
 import sys
@@ -61,6 +67,7 @@ def recommend(session_items, covis_topk, k):
     scores = defaultdict(float)
 
     for idx, aid in enumerate(reversed(session_items)):
+        # Recent session items are stronger signals for the next action.
         weight = 1.0 / (idx + 1)
         for neighbor, count in covis_topk.get(aid, []):
             scores[neighbor] += weight * count
@@ -101,6 +108,7 @@ def build_predictions(target_rows, recs_by_session):
     rows = []
 
     for session, event_type in zip(target_rows["session"], target_rows["type"]):
+        # Co-visitation is session-based, so the same candidates are reused for each target type.
         recs = recs_by_session.get(session, [])
         rows.append({
             "session": session,
