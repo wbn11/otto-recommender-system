@@ -9,10 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rank.common import TYPE2ID, get_output_dir, parse_items
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_recall_candidates.parquet"
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
-DEFAULT_OUTPUT_FILE = "multi_target_ranker_train_data.parquet"
+DEFAULT_CANDIDATES_FILE = "recall_candidates.parquet"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
+DEFAULT_OUTPUT_FILE = "ranker_train_data.parquet"
 
 
 def parse_args(argv=None):

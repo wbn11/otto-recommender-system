@@ -18,9 +18,9 @@ TYPE2ID = {
 }
 TYPE_ORDER = tuple(TYPE2ID)
 SOURCE_FILES = {
-    "popular": "multi_target_popular_predictions.csv",
-    "covis": "multi_target_covisitation_top50_predictions.csv",
-    "dssm": "multi_target_dssm_top50_predictions.csv",
+    "popular": "popular_predictions.csv",
+    "covis": "covisitation_predictions.csv",
+    "dssm": "dssm_predictions.csv",
 }
 SOURCE_COLUMNS = [
     "from_popular", "popular_rank", "popular_score",
@@ -33,7 +33,7 @@ BASE_OUTPUT_COLUMNS = [
     *SOURCE_COLUMNS,
     "source_count", "min_rank", "rrf_score", "target_type_id",
 ]
-DEFAULT_OUTPUT_FILE = "multi_target_recall_candidates.parquet"
+DEFAULT_OUTPUT_FILE = "recall_candidates.parquet"
 DEFAULT_K = 50
 
 

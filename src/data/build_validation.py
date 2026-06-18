@@ -13,8 +13,8 @@ _CFG = load_config()
 EVENT_TYPES = ("clicks", "carts", "orders")
 DEFAULT_NROWS = _CFG.get("data", {}).get("nrows", 100000)
 DEFAULT_HISTORY_RATIO = _CFG.get("data", {}).get("history_ratio", 0.8)
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
 
 
 def parse_args(argv=None):
@@ -79,7 +79,7 @@ def unique_in_order(values):
     return unique_values
 
 
-def build_multi_target_validation(events_df, history_ratio):
+def build_validation(events_df, history_ratio):
     train_parts = []
     label_rows = []
     skipped_sessions = 0
@@ -137,7 +137,7 @@ def main(argv=None):
     output_dir.mkdir(exist_ok=True)
 
     events_df = load_events(data_file, nrows=args.nrows)
-    train_events, valid_labels, skipped_sessions = build_multi_target_validation(
+    train_events, valid_labels, skipped_sessions = build_validation(
         events_df,
         args.history_ratio,
     )

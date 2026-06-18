@@ -30,9 +30,9 @@ TYPE_LOSS_WEIGHTS = {
 
 _CFG = load_config()
 _DSSM = _CFG.get("dssm", {})
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_MODEL_FILE = "dssm_model_mt.pth"
-DEFAULT_ITEM2ID_FILE = "item2id_mt.pkl"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_MODEL_FILE = "dssm_model.pth"
+DEFAULT_ITEM2ID_FILE = "item2id.pkl"
 DEFAULT_EMBEDDING_DIM = _DSSM.get("embedding_dim", 128)
 DEFAULT_EPOCHS = _DSSM.get("epochs", 20)
 DEFAULT_BATCH_SIZE = _DSSM.get("batch_size", 256)

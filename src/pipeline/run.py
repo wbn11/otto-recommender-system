@@ -17,70 +17,64 @@ class Task:
 SRC_DIR = Path(__file__).resolve().parents[1]
 
 TASKS = {
-    "eda": Task("data/eda.py", "Run exploratory data analysis."),
-    "build-multi-target-validation": Task(
-        "data/build_multi_target_validation.py",
+    "build-validation": Task(
+        "data/build_validation.py",
         "Build multi-target validation files.",
     ),
-    "build-test-events-multi-target": Task(
-        "data/build_test_events_multi_target.py",
+    "build-test-events": Task(
+        "data/build_test_events.py",
         "Build multi-target test events.",
     ),
-    "popular-recall-multi-target": Task(
-        "recall/popular_recall_multi_target.py",
+    "popular-recall": Task(
+        "recall/popular_recall.py",
         "Generate multi-target popular item recall.",
     ),
-    "build-covis-matrix-multi-target": Task(
-        "recall/build_covis_matrix_multi_target.py",
+    "build-covis-matrix": Task(
+        "recall/build_covis_matrix.py",
         "Build multi-target co-visitation top-k matrix.",
     ),
-    "covisitation-recall-multi-target": Task(
-        "recall/covisitation_recall_multi_target.py",
+    "covisitation-recall": Task(
+        "recall/covisitation_recall.py",
         "Generate multi-target co-visitation recall from saved matrix.",
     ),
-    "dssm-recall-multi-target": Task(
-        "recall/generate_dssm_recall_multi_target.py",
+    "dssm-recall": Task(
+        "recall/dssm_recall.py",
         "Generate multi-target DSSM recall predictions.",
     ),
-    "fusion-recall-multi-target": Task(
-        "recall/fusion_recall_multi_target.py",
+    "fusion-recall": Task(
+        "recall/fusion_recall.py",
         "Fuse multi-source multi-target recall predictions.",
     ),
-    "build-recall-candidates-multi-target": Task(
-        "recall/build_recall_candidates_multi_target.py",
+    "build-recall-candidates": Task(
+        "recall/build_recall_candidates.py",
         "Merge multi-source recall predictions into a candidate pool.",
     ),
-    "build-ranker-train-data-multi-target": Task(
-        "rank/build_ranker_train_data_multi_target.py",
+    "build-ranker-train-data": Task(
+        "rank/build_ranker_train_data.py",
         "Build multi-target ranker training data from recall candidates.",
     ),
-    "build-ranker-inference-data-multi-target": Task(
-        "rank/build_ranker_inference_data_multi_target.py",
+    "build-ranker-inference-data": Task(
+        "rank/build_ranker_inference_data.py",
         "Build multi-target ranker inference data from recall candidates.",
     ),
-    "train-ranker-multi-target": Task(
-        "rank/train_ranker_multi_target.py",
+    "train-ranker": Task(
+        "rank/train_ranker.py",
         "Train the multi-target LightGBM ranker.",
     ),
-    "ranker-predict-multi-target": Task(
-        "rank/predict_ranker_multi_target.py",
+    "ranker-predict": Task(
+        "rank/predict_ranker.py",
         "Generate multi-target ranker predictions.",
     ),
-    "train-dssm-multi-target": Task(
-        "models/train_dssm_multi_target.py",
+    "train-dssm": Task(
+        "models/train_dssm.py",
         "Train the multi-target DSSM recall model.",
     ),
-    "evaluate-multi-target": Task("evaluation/evaluate_multi_target.py", "Evaluate multi-target recall predictions."),
+    "evaluate": Task("evaluation/evaluate.py", "Evaluate multi-target recall predictions."),
     "build-submission": Task("evaluation/build_submission.py", "Build Kaggle submission from predictions."),
-    "order-predictions-multi-target": Task(
-        "evaluation/order_predictions_multi_target.py",
-        "Order multi-target predictions by target rows.",
-    ),
-    "analyze-recall-candidates-multi-target": Task(
-        "evaluation/analyze_recall_candidates_multi_target.py",
+    "analyze-recall-candidates": Task(
+        "evaluation/analyze_recall_candidates.py",
         "Analyze multi-target recall candidate oracle recall.",
     ),
-    "device-check": Task("utils/test.py", "Print the torch device used by this environment."),
 }
 
 

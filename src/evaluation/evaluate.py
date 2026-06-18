@@ -9,8 +9,8 @@ from utils.config import load_config
 
 
 _CFG = load_config()
-DEFAULT_PRED_FILE = "multi_target_popular_predictions.csv"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_PRED_FILE = "popular_predictions.csv"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
 DEFAULT_K = _CFG.get("eval", {}).get("k", 20)
 
 TYPE_WEIGHTS = _CFG.get("eval", {}).get("type_weights", {

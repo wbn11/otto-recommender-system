@@ -17,12 +17,12 @@ from rank.common import (
 )
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_ranker_train_data.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_CANDIDATES_FILE = "ranker_train_data.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
 DEFAULT_MODEL_FILE = "lgbm_ranker.txt"
 DEFAULT_IMPORTANCE_FILE = "ranker_feature_importance.csv"
-DEFAULT_VALID_LABELS_FILE = "multi_target_ranker_valid_labels.parquet"
-DEFAULT_VALID_PRED_FILE = "multi_target_ranker_valid_predictions.csv"
+DEFAULT_VALID_LABELS_FILE = "ranker_valid_labels.parquet"
+DEFAULT_VALID_PRED_FILE = "ranker_valid_predictions.csv"
 DEFAULT_SPLIT_FILE = "ranker_valid_sessions.pkl"
 DEFAULT_K = 20
 DEFAULT_SEED = 2024

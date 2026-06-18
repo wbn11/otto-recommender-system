@@ -11,10 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from utils.target_rows import load_target_rows_from_file
 
 
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
-DEFAULT_COVIS_FILE = "multi_target_covis_topk.pkl"
-DEFAULT_OUTPUT_FILE = "multi_target_covisitation_predictions.csv"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
+DEFAULT_COVIS_FILE = "covis_topk.pkl"
+DEFAULT_OUTPUT_FILE = "covisitation_predictions.csv"
 DEFAULT_K = 20
 
 

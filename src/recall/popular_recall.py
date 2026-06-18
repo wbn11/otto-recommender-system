@@ -9,9 +9,9 @@ from utils.target_rows import load_target_rows_from_file
 
 
 EVENT_TYPES = ("clicks", "carts", "orders")
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
-DEFAULT_OUTPUT_FILE = "multi_target_popular_predictions.csv"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
+DEFAULT_OUTPUT_FILE = "popular_predictions.csv"
 DEFAULT_K = 20
 
 

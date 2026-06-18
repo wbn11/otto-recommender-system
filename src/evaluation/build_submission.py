@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from utils.target_rows import normalize_prediction_items
 
 
-DEFAULT_PRED_FILE = "multi_target_test_ranker_predictions.csv"
+DEFAULT_PRED_FILE = "test_ranker_predictions.csv"
 DEFAULT_OUTPUT_FILE = "submission.csv"
 DEFAULT_K = 20
 

@@ -1,23 +1,20 @@
-# OTTO 推荐系统统一配置(P0 引入)
+# Unified configuration for the OTTO multi-target recommendation project.
 #
-# 命名规范(③):
-#   - 中间数据表(events / labels)统一用 .parquet(列式、压缩、带类型,加载快)
-#   - 预测结果 / Kaggle 提交统一用 .csv(体积小且需人读)
-#   - 召回矩阵 / id 映射用 .pkl
-#   - 多目标产物加 multi_target_ 前缀;模型变体用后缀区分(如 dssm_model_mt.pth),
-#     避免单目标 / 多目标产物互相覆盖
-#
-# 现状:多目标主链路脚本已从本文件读取默认值;单目标(leave-one-out)等其余脚本可增量接入。
+# Naming rules:
+#   - Intermediate event/label tables use .parquet.
+#   - Prediction and submission files use .csv.
+#   - Recall matrices and id mappings use .pkl.
+#   - Artifact names are short because the old single-target pipeline has been removed.
 
 data:
-  nrows: 100000          # 从原始 jsonl 读取的 session 数(子采样)
-  history_ratio: 0.8     # 多目标切分:session 前缀作为 history 的比例
+  nrows: 100000          # Number of sessions to read from the raw jsonl file.
+  history_ratio: 0.8     # Prefix ratio used as session history when building validation data.
 
 covis:
-  session_limit: 30      # 每个 session 取最近 N 个 item 参与共现
-  top_k: 20              # 每个 item 保留的邻居数
+  session_limit: 30      # Latest N items per session used to build co-visitation pairs.
+  top_k: 20              # Number of neighbors kept for each item.
 
-dssm:                    # (P1 接入多目标后生效)
+dssm:
   embedding_dim: 128
   epochs: 20
   batch_size: 256
@@ -27,12 +24,12 @@ dssm:                    # (P1 接入多目标后生效)
 
 eval:
   k: 20
-  type_weights:          # 竞赛固定权重
+  type_weights:
     clicks: 0.10
     carts: 0.30
     orders: 0.60
 
-fusion:                  # 单目标多源融合权重(reciprocal-rank)
+fusion:
   popular: 1.0
   covisitation: 2.0
   dssm: 5.0

@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rank.build_ranker_train_data_multi_target import (
+from rank.build_ranker_train_data import (
     add_history_features,
     add_stat_features,
     cast_existing_feature_dtypes,
@@ -14,9 +14,9 @@ from rank.build_ranker_train_data_multi_target import (
 from rank.common import get_output_dir
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_test_recall_candidates.parquet"
-DEFAULT_TEST_EVENTS_FILE = "multi_target_test_events.parquet"
-DEFAULT_OUTPUT_FILE = "multi_target_test_ranker_data.parquet"
+DEFAULT_CANDIDATES_FILE = "test_recall_candidates.parquet"
+DEFAULT_TEST_EVENTS_FILE = "test_events.parquet"
+DEFAULT_OUTPUT_FILE = "test_ranker_data.parquet"
 
 
 def parse_args(argv=None):

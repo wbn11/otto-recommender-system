@@ -6,9 +6,9 @@ import pandas as pd
 
 
 DEFAULT_SOURCE_FILES = {
-    "popular": "multi_target_popular_predictions.csv",
-    "covis": "multi_target_covisitation_predictions.csv",
-    "dssm": "multi_target_dssm_predictions.csv",
+    "popular": "popular_predictions.csv",
+    "covis": "covisitation_predictions.csv",
+    "dssm": "dssm_predictions.csv",
 }
 TYPE2ID = {
     "clicks": 1,

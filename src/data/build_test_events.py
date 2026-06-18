@@ -5,7 +5,7 @@ import polars as pl
 
 
 DEFAULT_NROWS = 100000
-DEFAULT_OUTPUT_FILE = "multi_target_test_events.parquet"
+DEFAULT_OUTPUT_FILE = "test_events.parquet"
 
 
 def parse_args(argv=None):

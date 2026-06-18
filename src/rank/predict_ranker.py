@@ -9,10 +9,10 @@ from rank.common import build_predictions_from_scores, get_output_dir
 from utils.target_rows import load_target_rows_from_file
 
 
-DEFAULT_CANDIDATES_FILE = "multi_target_ranker_train_data.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_CANDIDATES_FILE = "ranker_train_data.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
 DEFAULT_MODEL_FILE = "lgbm_ranker.txt"
-DEFAULT_OUTPUT_FILE = "multi_target_ranker_predictions.csv"
+DEFAULT_OUTPUT_FILE = "ranker_predictions.csv"
 DEFAULT_K = 20
 
 

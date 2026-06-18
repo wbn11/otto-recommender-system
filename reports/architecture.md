@@ -1,92 +1,224 @@
 # OTTO 多目标推荐系统架构
 
-> 目标: 围绕 OTTO 的 `clicks / carts / orders` 多目标任务, 构建从多路召回到 LightGBM 精排的两阶段推荐系统。评估指标为加权 Recall@20, 权重为 clicks 0.10 / carts 0.30 / orders 0.60。
-
-## 当前主链路
+本文档说明当前项目的主流程、数据契约和各模块职责。项目目标是基于 OTTO 数据完成 `clicks / carts / orders` 三类目标的推荐，评估指标为加权 Recall@20。
 
 ```text
-multi_target_train_events.parquet
-multi_target_valid_labels.parquet
-        |
-        v
-Popular / Covisitation / DSSM multi-target recall
-        |
-        v
-build_recall_candidates_multi_target.py
-        |
-        v
-build_ranker_train_data_multi_target.py
-        |
-        v
-train_ranker_multi_target.py
-        |
-        v
-predict_ranker_multi_target.py
-        |
-        v
-multi_target_ranker_predictions.csv
+clicks: 0.10
+carts:  0.30
+orders: 0.60
 ```
 
-## 数据契约
+## 1. 总体架构
 
-- 训练事件: `outputs/multi_target_train_events.parquet`
-  - 列: `session, aid, ts, type`
-- 验证标签: `outputs/multi_target_valid_labels.parquet`
-  - 列: `session, type, labels`
-  - `labels` 是空格分隔的未来 aid
-- 召回/排序预测输出:
-  - 列: `session, type, predictions`
-  - `predictions` 是空格分隔的 Top-K aid
+项目采用工业推荐系统里常见的两阶段结构：
 
-## 召回层
+```text
+数据构建
+  -> 多路召回
+  -> 召回候选池合并
+  -> LightGBM 精排
+  -> 预测 / 评估 / 提交
+```
 
-- `src/recall/popular_recall_multi_target.py`
-  - 生成全局热门召回。
-- `src/recall/build_covis_matrix_multi_target.py`
-  - 构建多目标共现矩阵。
-- `src/recall/covisitation_recall_multi_target.py`
-  - 根据共现矩阵生成 `(session,type)` 召回。
-- `src/models/train_dssm_multi_target.py`
-  - 训练 type-aware DSSM。
-- `src/recall/generate_dssm_recall_multi_target.py`
-  - 用 DSSM session 向量和 item embedding 做全库相似度检索。
-- `src/recall/fusion_recall_multi_target.py`
-  - 用 reciprocal-rank 融合 popular / covis / DSSM。
-- `src/recall/build_recall_candidates_multi_target.py`
-  - 合并 popular / covis / DSSM Top50 召回结果, 输出候选池。
+召回阶段负责扩大候选覆盖率，排序阶段负责在候选池内部把更可能命中的 item 排到前 20。
 
-## 精排层
+## 2. Validation 流程
 
-- `src/rank/build_ranker_train_data_multi_target.py`
-  - 读取统一候选池, 根据验证标签打 `label`, 加 item/session 统计特征和 session history 特征。
-- `src/rank/train_ranker_multi_target.py`
-  - 使用 LightGBM `lambdarank`, 按 `(session,type)` 分组排序, 按 session 做 train/holdout split。
-- `src/rank/predict_ranker_multi_target.py`
-  - 对候选池打 `ranker_score`, 每个 `(session,type)` 取 Top20。
+validation 有真实未来 label，因此可以做离线评估和排序训练。
 
-## 离线分析
+```text
+raw train jsonl
+        |
+        v
+build_validation.py
+        |
+        +--> train_events.parquet
+        +--> valid_labels.parquet
+                    |
+                    v
+popular_recall.py
+covisitation_recall.py
+dssm_recall.py
+                    |
+                    v
+build_recall_candidates.py
+                    |
+                    +--> analyze_recall_candidates.py  # 只做离线分析
+                    |
+                    v
+build_ranker_train_data.py
+                    |
+                    v
+train_ranker.py
+                    |
+                    v
+predict_ranker.py
+                    |
+                    v
+evaluate.py
+```
 
-- `src/evaluation/analyze_recall_candidates_multi_target.py`
-  - 输入候选池和验证标签, 计算 candidate oracle Recall@20。
-- `src/evaluation/evaluate_multi_target.py`
-  - 输入预测 CSV 和验证标签, 计算加权 Recall@20。
+说明：
 
-## 当前结果
+- 召回脚本只需要历史行为和目标行，不依赖真实 label。
+- `build_ranker_train_data.py` 才会读取 `valid_labels.parquet`，给候选 item 打 `label`。
+- `analyze_recall_candidates.py` 不属于主训练链路，它只用于观察候选池 oracle 上限。
 
-- popular: Weighted Recall@20 = 0.0096
-- covisitation: Weighted Recall@20 = 0.2656
-- DSSM: Weighted Recall@20 = 0.1792
-- fusion: Weighted Recall@20 = 0.3028
-- Top50 candidate oracle: Weighted Recall@20 = 0.4058
-- LightGBM ranker holdout: Weighted Recall@20 = 0.3793
-- LightGBM ranker full validation: Weighted Recall@20 = 0.3858
+## 3. Test / Submission 流程
 
-## 后续扩展
+test 没有真实 label，只能做推理和提交文件生成。
 
-TIGER 或其他生成式召回可以作为第四路召回源加入候选池。只要输出继续保持:
+```text
+otto-recsys-test.jsonl
+        |
+        v
+build_test_events.py
+        |
+        v
+test_events.parquet
+        |
+        v
+popular / covisitation / DSSM recall with --test-events-file
+        |
+        v
+build_recall_candidates.py
+        |
+        v
+build_ranker_inference_data.py
+        |
+        v
+predict_ranker.py
+        |
+        v
+build_submission.py
+```
+
+test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：
+
+```text
+session,clicks
+session,carts
+session,orders
+```
+
+## 4. 数据契约
+
+训练事件：
+
+```text
+session, aid, ts, type
+```
+
+验证标签：
+
+```text
+session, type, labels
+```
+
+召回和排序预测：
+
+```text
+session, type, predictions
+```
+
+Kaggle submission：
+
+```text
+session_type, labels
+```
+
+## 5. 召回候选池字段
+
+`build_recall_candidates.py` 合并 popular、covisitation、DSSM 三路召回，输出一行一个候选：
+
+```text
+session, type, aid,
+from_popular, popular_rank, popular_score,
+from_covis, covis_rank, covis_score, covis_raw_score_norm,
+from_dssm, dssm_rank, dssm_score, dssm_raw_score_norm,
+source_count, min_rank, rrf_score, target_type_id
+```
+
+字段含义：
+
+- `from_*`: 该候选是否来自对应召回源。
+- `*_rank`: 该候选在对应召回源中的名次。
+- `popular_score / covis_score / dssm_score`: 基于 rank 的 `1 / rank` 分数，用于 RRF 类融合特征。
+- `covis_raw_score_norm`: co-visitation 原始累积分数在同一个 `(session,type)` 内的归一化值，需要传入 covis detail 文件才会生成。
+- `dssm_raw_score_norm`: DSSM cosine similarity 在同一个 `(session,type)` 内的归一化值，需要传入 DSSM detail 文件才会生成。
+- `source_count`: 候选被多少路召回同时命中。
+- `min_rank`: 候选在所有来源中的最好名次。
+- `rrf_score`: reciprocal rank fusion 分数。
+- `target_type_id`: `type` 的数值编码，方便 LightGBM 使用。
+
+## 6. 排序训练数据字段
+
+`build_ranker_train_data.py` 在召回候选池基础上增加监督信号和统计特征：
+
+```text
+label,
+item_popularity, item_click_count, item_cart_count, item_order_count,
+session_len, session_click_count, session_cart_count, session_order_count,
+in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
+```
+
+其中：
+
+- `label`: 当前候选 `aid` 是否在该 `(session,type)` 的未来真实 labels 中。
+- `item_*`: item 在训练历史中的全局统计。
+- `session_*`: 当前 session 的长度和行为类型计数。
+- `history_*`: 候选 item 是否在当前 session 历史中出现过，以及最近一次出现的位置和类型。
+
+## 7. 模块职责
+
+### 数据层
+
+- `build_validation.py`: 从原始训练数据切分 history 和 future labels。
+- `build_test_events.py`: 读取 test jsonl，展开为事件表。
+
+### 召回层
+
+- `popular_recall.py`: 全局热门召回。
+- `build_covis_matrix.py`: 构建 co-visitation top-k 矩阵。
+- `covisitation_recall.py`: 根据 session 历史和共现矩阵召回。
+- `train_dssm.py`: 训练 type-aware DSSM。
+- `dssm_recall.py`: 用 DSSM session 向量做全库相似度检索。
+- `fusion_recall.py`: 固定权重 RRF 融合，作为召回基线。
+- `build_recall_candidates.py`: 合并多路召回结果，输出统一候选池。
+
+### 排序层
+
+- `build_ranker_train_data.py`: 为 validation 候选池打 label 并补充特征。
+- `build_ranker_inference_data.py`: 为 test 候选池补充同样的特征，不生成 label。
+- `train_ranker.py`: 训练 LightGBM LambdaRank 模型。
+- `predict_ranker.py`: 对候选池打分，每个 `(session,type)` 取 Top20。
+
+### 评估与提交
+
+- `analyze_recall_candidates.py`: 计算候选池 oracle Recall@20。
+- `evaluate.py`: 评估预测文件的 Recall@20。
+- `build_submission.py`: 生成 Kaggle submission 格式。
+
+## 8. 当前结果
+
+| 阶段 | Weighted Recall@20 |
+|---|---:|
+| Popular | 0.0096 |
+| Covisitation | 0.2656 |
+| DSSM | 0.1792 |
+| Fixed fusion | 0.3028 |
+| Top50 candidate oracle | 0.4058 |
+| LightGBM holdout | 0.3793 |
+| LightGBM full validation | 0.3858 |
+
+当前主结果是 `LightGBM full validation = 0.3858`。
+
+## 9. 后续扩展
+
+TIGER 或其他生成式召回可以作为第四路召回源加入。只要输出仍保持：
 
 ```text
 session,type,predictions
 ```
 
-就可以接入现有 recall candidates 和 ranker 流程。
+就可以接入 `build_recall_candidates.py`，再进入现有 LightGBM 精排流程。

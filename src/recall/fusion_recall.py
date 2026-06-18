@@ -10,12 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from utils.target_rows import load_target_rows_from_file
 
 
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
-DEFAULT_POPULAR_FILE = "multi_target_popular_predictions.csv"
-DEFAULT_COVIS_FILE = "multi_target_covisitation_predictions.csv"
-DEFAULT_DSSM_FILE = "multi_target_dssm_predictions.csv"
-DEFAULT_OUTPUT_FILE = "multi_target_fusion_predictions.csv"
-DEFAULT_GRID_OUTPUT_FILE = "multi_target_fusion_grid_search.csv"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
+DEFAULT_POPULAR_FILE = "popular_predictions.csv"
+DEFAULT_COVIS_FILE = "covisitation_predictions.csv"
+DEFAULT_DSSM_FILE = "dssm_predictions.csv"
+DEFAULT_OUTPUT_FILE = "fusion_predictions.csv"
+DEFAULT_GRID_OUTPUT_FILE = "fusion_grid_search.csv"
 DEFAULT_K = 20
 TYPE_WEIGHTS = {
     "clicks": 0.10,

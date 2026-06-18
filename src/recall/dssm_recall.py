@@ -9,18 +9,18 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from models.train_dssm_multi_target import DSSM, TYPE2ID
+from models.train_dssm import DSSM, TYPE2ID
 from utils.config import load_config
 from utils.target_rows import load_target_rows_from_file
 
 
 _CFG = load_config()
 _DSSM = _CFG.get("dssm", {})
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
-DEFAULT_MODEL_FILE = "dssm_model_mt.pth"
-DEFAULT_ITEM2ID_FILE = "item2id_mt.pkl"
-DEFAULT_OUTPUT_FILE = "multi_target_dssm_predictions.csv"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
+DEFAULT_MODEL_FILE = "dssm_model.pth"
+DEFAULT_ITEM2ID_FILE = "item2id.pkl"
+DEFAULT_OUTPUT_FILE = "dssm_predictions.csv"
 DEFAULT_K = _CFG.get("eval", {}).get("k", 20)
 DEFAULT_BATCH_SIZE = _DSSM.get("batch_size", 256)
 DEFAULT_EMBEDDING_DIM = _DSSM.get("embedding_dim", 128)

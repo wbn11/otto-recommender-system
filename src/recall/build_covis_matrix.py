@@ -12,8 +12,8 @@ from utils.config import load_config
 
 
 _CFG = load_config()
-DEFAULT_TRAIN_FILE = "multi_target_train_events.parquet"
-DEFAULT_OUTPUT_FILE = "multi_target_covis_topk.pkl"
+DEFAULT_TRAIN_FILE = "train_events.parquet"
+DEFAULT_OUTPUT_FILE = "covis_topk.pkl"
 DEFAULT_SESSION_LIMIT = _CFG.get("covis", {}).get("session_limit", 30)
 DEFAULT_TOP_K = _CFG.get("covis", {}).get("top_k", 20)
 

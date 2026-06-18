@@ -9,8 +9,8 @@ TYPE_WEIGHTS = {
     "carts": 0.30,
     "orders": 0.60,
 }
-DEFAULT_CANDIDATES_FILE = "multi_target_recall_candidates.parquet"
-DEFAULT_LABELS_FILE = "multi_target_valid_labels.parquet"
+DEFAULT_CANDIDATES_FILE = "recall_candidates.parquet"
+DEFAULT_LABELS_FILE = "valid_labels.parquet"
 DEFAULT_K = 20
 
 
