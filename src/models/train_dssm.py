@@ -29,6 +29,7 @@ TYPE2ID = {
 }
 
 TYPE_LOSS_WEIGHTS = {
+    # Orders matter most in OTTO scoring, so rare high-value behaviors get larger gradients.
     TYPE2ID["clicks"]: 1.0,
     TYPE2ID["carts"]: 3.0,
     TYPE2ID["orders"]: 6.0,
@@ -81,6 +82,7 @@ class DSSMDataset(Dataset):
         items, event_types = self.sessions[session_idx]
         start = 0 if not self.max_seq_len else max(0, target_pos - self.max_seq_len)
 
+        # Each sample uses the prefix before target_pos to predict that next item.
         history_ids = items[start:target_pos]
         history_type_ids = event_types[start:target_pos]
         target_id = items[target_pos]
@@ -134,6 +136,7 @@ def build_sessions(train_events, item2id):
     groups = train_events.sort_values("ts").groupby("session")
 
     for _, group in groups:
+        # Keep item ids and behavior type ids aligned by timestamp.
         item_ids = [item2id[aid] for aid in group["aid"].tolist()]
         type_ids = [TYPE2ID.get(event_type, 0) for event_type in group["type"].tolist()]
         if len(item_ids) >= 2:
@@ -211,6 +214,7 @@ def collate_fn(batch):
 
 
 def save_checkpoint(output_path, model, args):
+    # Save model metadata with weights so recall can reconstruct the same architecture.
     checkpoint = {
         "state_dict": model.state_dict(),
         "embedding_dim": args.embedding_dim,
@@ -256,6 +260,7 @@ def main(argv=None):
             targets = targets.to(device)
             target_types = target_types.to(device)
             sample_weights = sample_weights.to(device)
+            # The positive target for row i is column i; other batch items are negatives.
             labels = torch.arange(len(targets), device=device)
 
             scores = model(histories, history_types, targets, target_types)

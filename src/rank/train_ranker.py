@@ -109,6 +109,7 @@ def main(argv=None):
 
     candidates = pd.read_parquet(candidates_path)
     labels = pd.read_parquet(labels_path)
+    # Feature columns exclude ids and label; they must match prediction-time columns.
     feature_columns = get_feature_columns(candidates)
     valid_sessions = split_sessions(candidates, args.valid_ratio, args.seed)
 
@@ -132,6 +133,7 @@ def main(argv=None):
         "feature_fraction": args.feature_fraction,
         "bagging_fraction": args.bagging_fraction,
         "bagging_freq": args.bagging_freq,
+        # Binary labels only need gains for 0 and 1.
         "label_gain": [0, 1],
         "seed": args.seed,
         "verbosity": -1,
@@ -154,6 +156,7 @@ def main(argv=None):
     )
 
     model.save_model(output_dir / args.model_file)
+    # Gain importance is more informative than split count for ranking features.
     importance = pd.DataFrame({
         "feature": feature_columns,
         "importance": model.feature_importance(importance_type="gain"),

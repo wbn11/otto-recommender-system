@@ -159,6 +159,7 @@ def build_history_features(train_events):
 def add_history_features(candidates, train_events):
     history = build_history_features(train_events)
     candidates = candidates.merge(history, on=["session", "aid"], how="left", copy=False)
+    # Missing history means the candidate was recalled from other users/items, not this session.
     candidates["in_session_history"] = candidates["session_aid_count"].notna().astype("int8")
     candidates["session_aid_count"] = candidates["session_aid_count"].fillna(0).astype("int16")
     candidates["aid_last_pos_from_end"] = candidates["aid_last_pos_from_end"].fillna(-1).astype("int16")
@@ -167,6 +168,7 @@ def add_history_features(candidates, train_events):
 
 
 def cast_existing_feature_dtypes(candidates):
+    # Compact dtypes reduce memory pressure during LightGBM training.
     int8_columns = [column for column in candidates.columns if column.startswith("from_")]
     int8_columns.extend(["label", "source_count", "target_type_id"])
     for column in int8_columns:

@@ -173,6 +173,7 @@ def candidates_to_frame(candidates, include_raw_score_norm):
     if not row_count:
         return pd.DataFrame(columns=output_columns)
 
+    # Preallocate arrays because candidate pools can be much larger than prediction rows.
     columns = {
         "session": np.empty(row_count, dtype=np.int64),
         "aid": np.empty(row_count, dtype=np.int64),
@@ -221,6 +222,7 @@ def candidates_to_frame(candidates, include_raw_score_norm):
     candidates.clear()
     gc.collect()
 
+    # Store type as categorical for compact parquet output while preserving the string label.
     columns["type"] = pd.Categorical.from_codes(type_codes - 1, categories=TYPE_ORDER)
     return pd.DataFrame(columns, columns=output_columns, copy=False)
 

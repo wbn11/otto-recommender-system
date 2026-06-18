@@ -146,10 +146,12 @@ def recommend_rows(model, item_embs, id2item, session_histories, session_history
 
         histories = pad(known_histories).to(device)
         history_types = pad(known_history_types).to(device)
+        # One batch can contain mixed clicks/carts/orders target rows.
         target_types = torch.LongTensor(target_type_ids).to(device)
 
         with torch.no_grad():
             session_embs = model.encode_session(histories, history_types, target_types)
+            # Matrix multiply scores every session vector against every item vector.
             scores = session_embs @ item_embs.T
             # Item id 0 is padding and must never be recommended.
             scores[:, 0] = -1e9
