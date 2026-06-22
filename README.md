@@ -103,7 +103,7 @@ Top50 candidate oracle 为 `0.4058`，说明当前候选池上限高于最终排
 - 特征包括召回源信息、item 统计、session 统计和 session history 特征。
 - 最终每个 `(session,type)` 输出 Top20。
 
-## 6. Quick Start
+## 6. 快速开始
 
 以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。
 
