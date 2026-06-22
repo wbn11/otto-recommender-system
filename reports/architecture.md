@@ -27,7 +27,7 @@ orders: 0.60
 validation 有真实未来 label，因此可以做离线评估和排序训练。
 
 <p align="center">
-  <img src="assets/architecture_validation.png" alt="Validation architecture" width="520">
+  <img src="assets/architecture_validation.png" alt="Validation architecture" width="500">
 </p>
 
 说明：
@@ -53,7 +53,7 @@ validation 有真实未来 label，因此可以做离线评估和排序训练。
 test 没有真实 label，只执行推理和提交文件生成。
 
 <p align="center">
-  <img src="assets/architecture_test.png" alt="Test architecture" width="520">
+  <img src="assets/architecture_test.png" alt="Test architecture" width="500">
 </p>
 
 test 侧不会执行评估，也不会生成 `label` 列。目标行由 test events 自动展开为：

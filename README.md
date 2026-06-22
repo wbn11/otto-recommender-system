@@ -71,13 +71,13 @@ orders: 0.60
 Validation / training:
 
 <p align="center">
-  <img src="reports/assets/workflow_validation.png" alt="Validation workflow" width="520">
+  <img src="reports/assets/workflow_validation.png" alt="Validation workflow" width="500">
 </p>
 
 Test / submission:
 
 <p align="center">
-  <img src="reports/assets/workflow_test.png" alt="Test workflow" width="520">
+  <img src="reports/assets/workflow_test.png" alt="Test workflow" width="500">
 </p>
 
 ## 5. 方法说明
