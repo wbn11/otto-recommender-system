@@ -30,6 +30,7 @@ DEFAULT_OUTPUT_FILE = "dssm_predictions.csv"
 DEFAULT_K = _CFG.get("eval", {}).get("k", 20)
 DEFAULT_BATCH_SIZE = _DSSM.get("batch_size", 256)
 DEFAULT_EMBEDDING_DIM = _DSSM.get("embedding_dim", 128)
+DEFAULT_RETRIEVAL_BACKEND = _DSSM.get("retrieval_backend", "torch")
 
 
 def parse_args(argv=None):
@@ -47,6 +48,8 @@ def parse_args(argv=None):
     parser.add_argument("--k", type=int, default=DEFAULT_K)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--embedding-dim", type=int, default=DEFAULT_EMBEDDING_DIM)
+    parser.add_argument("--retrieval-backend", choices=["torch", "faiss"], default=DEFAULT_RETRIEVAL_BACKEND,
+                        help="Vector search backend. Default keeps the original torch brute-force search.")
     return parser.parse_args(argv)
 
 
@@ -113,8 +116,56 @@ def pad(values):
     return torch.LongTensor(padded)
 
 
+def build_faiss_index(item_embs):
+    try:
+        import faiss
+    except ImportError as exc:
+        raise ImportError(
+            "FAISS backend requested, but faiss is not installed. "
+            "Install faiss-cpu first, or use --retrieval-backend torch."
+        ) from exc
+
+    item_vectors = item_embs.detach().cpu().numpy().astype("float32")
+    index = faiss.IndexFlatIP(item_vectors.shape[1])
+    index.add(item_vectors)
+    return index
+
+
+def search_with_torch(session_embs, item_embs, topk):
+    # Exact brute-force search: score every session vector against every item vector.
+    scores = session_embs @ item_embs.T
+    # Item id 0 is padding and must never be recommended.
+    scores[:, 0] = -1e9
+    topk_values, topk_indices = torch.topk(scores, k=topk, dim=1)
+    return topk_values.cpu().tolist(), topk_indices.cpu().tolist()
+
+
+def search_with_faiss(faiss_index, session_embs, topk):
+    # Embeddings are already L2-normalized, so inner product equals cosine similarity.
+    query_vectors = session_embs.detach().cpu().numpy().astype("float32")
+    search_k = min(topk + 1, faiss_index.ntotal)
+    score_rows, id_rows = faiss_index.search(query_vectors, search_k)
+
+    topk_scores = []
+    topk_ids = []
+    for scores, ids in zip(score_rows.tolist(), id_rows.tolist()):
+        row_scores = []
+        row_ids = []
+        for item_id, score in zip(ids, scores):
+            if item_id <= 0:
+                continue
+            row_ids.append(item_id)
+            row_scores.append(float(score))
+            if len(row_ids) >= topk:
+                break
+        topk_scores.append(row_scores)
+        topk_ids.append(row_ids)
+
+    return topk_scores, topk_ids
+
+
 def recommend_rows(model, item_embs, id2item, session_histories, session_history_types,
-                   target_rows, batch_size, k, device):
+                   target_rows, batch_size, k, device, retrieval_backend, faiss_index=None):
     rows = []
     detail_rows = {"session": [], "type": [], "aid": [], "rank": [], "dssm_score": []}
     empty_rows = 0
@@ -151,13 +202,10 @@ def recommend_rows(model, item_embs, id2item, session_histories, session_history
 
         with torch.no_grad():
             session_embs = model.encode_session(histories, history_types, target_types)
-            # Matrix multiply scores every session vector against every item vector.
-            scores = session_embs @ item_embs.T
-            # Item id 0 is padding and must never be recommended.
-            scores[:, 0] = -1e9
-            topk_values, topk_indices = torch.topk(scores, k=topk, dim=1)
-            topk_scores = topk_values.cpu().tolist()
-            topk_ids = topk_indices.cpu().tolist()
+            if retrieval_backend == "faiss":
+                topk_scores, topk_ids = search_with_faiss(faiss_index, session_embs, topk)
+            else:
+                topk_scores, topk_ids = search_with_torch(session_embs, item_embs, topk)
 
         for (session, event_type), ids, score_values in zip(known_rows, topk_ids, topk_scores):
             recs = []
@@ -195,11 +243,13 @@ def main(argv=None):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}")
+    print(f"retrieval_backend={args.retrieval_backend}")
     model = load_model(model_path, item2id, args, device)
     with torch.no_grad():
         # Item embeddings are normalized once and reused for all session batches.
         item_embs = F.normalize(model.item_embedding.weight, p=2, dim=1)
 
+    faiss_index = build_faiss_index(item_embs) if args.retrieval_backend == "faiss" else None
     session_histories, session_history_types, skipped_items = build_session_histories(train_events, item2id)
     predictions, details, empty_rows = recommend_rows(
         model=model,
@@ -211,6 +261,8 @@ def main(argv=None):
         batch_size=args.batch_size,
         k=args.k,
         device=device,
+        retrieval_backend=args.retrieval_backend,
+        faiss_index=faiss_index,
     )
     predictions.to_csv(output_dir / args.output_file, index=False)
     if args.detail_file:

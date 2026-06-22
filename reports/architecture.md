@@ -48,6 +48,8 @@ orders: 0.60
 
 这个设计让热门召回提供分类型兜底，共现召回提供稳定的相邻商品覆盖，DSSM 补充带目标类型信息的向量候选。
 
+DSSM 召回支持两种检索后端：默认 PyTorch 全库矩阵相似度计算，以及可选的 FAISS 向量索引检索。FAISS 后端不改变模型参数和输出格式，主要用于把 DSSM 召回扩展成更接近工业向量检索的流程。
+
 ## 4. Test / Submission 流程
 
 测试集没有真实标签，只执行推理和提交文件生成。
@@ -181,7 +183,7 @@ in_session_history, session_aid_count, aid_last_pos_from_end, aid_last_type_id
 - `build_covis_matrix.py`: 构建 co-visitation top-k 矩阵。
 - `covisitation_recall.py`: 根据 session 历史和共现矩阵召回。
 - `train_dssm.py`: 训练带行为类型信息的 DSSM。
-- `dssm_recall.py`: 用 DSSM session 向量做全库相似度检索。
+- `dssm_recall.py`: 用 DSSM session 向量做全库相似度检索，支持 PyTorch 和 FAISS 两种检索后端。
 - `fusion_recall.py`: 固定权重 RRF 融合，作为召回基线。
 - `build_recall_candidates.py`: 合并多路召回结果，输出统一候选池。
 

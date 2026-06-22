@@ -21,6 +21,7 @@ dssm:
   lr: 0.001
   weight_decay: 0.00001
   max_pairs: 100000
+  retrieval_backend: torch  # torch = exact matrix search; faiss = optional vector index search.
 
 eval:
   k: 20

@@ -88,6 +88,8 @@ Test / submission:
 - **Co-visitation**: 基于 session 内 item 共现构建 item-to-item top-k 邻居矩阵，召回时对最近历史行为赋予更高权重。
 - **DSSM**: 训练 type-aware 双塔模型，将 session 历史和 item 映射到同一向量空间，通过相似度检索召回候选。
 
+DSSM 召回默认使用 PyTorch 全库矩阵相似度计算；安装 FAISS 后，可以通过 `--retrieval-backend faiss` 切换为向量索引检索。
+
 ### Candidate Pool
 
 候选池合并 Popular、Co-visitation、DSSM 三路召回结果，并保留各召回源的 rank、rank-based score、部分 raw score 归一化特征，以及 `source_count`、`min_rank`、`rrf_score` 等多源一致性特征。
@@ -148,6 +150,14 @@ python src\pipeline\run.py --workflow test
 ```powershell
 python src\pipeline\run.py evaluate --pred-file ranker_predictions.csv
 ```
+
+可选使用 FAISS 进行 DSSM 向量检索：
+
+```powershell
+python src\pipeline\run.py dssm-recall --k 50 --retrieval-backend faiss
+```
+
+FAISS 是可选依赖，可按环境选择 `pip install faiss-cpu` 或 Conda 安装；如果未安装 FAISS，请继续使用默认的 `--retrieval-backend torch`。
 
 ## 7. 项目结构
 
