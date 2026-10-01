@@ -1,0 +1,30 @@
+data_mode: debug
+experiment:
+  description: End-to-end correctness and smoke-test profile.
+
+dssm:
+  batch_size: 256
+  epochs: 1
+  hard_negatives: 0
+
+faiss:
+  index_type: flat
+  nlist: 128
+  nprobe: 8
+  use_gpu: false
+
+ranker:
+  train_session_limit: 10000
+  num_boost_round: 50
+  early_stopping_rounds: 10
+
+recall:
+  type_covis:
+    pair_buckets: 16
+  buy2buy:
+    pair_buckets: 16
+  time_covis:
+    pair_buckets: 16
+
+runtime:
+  workers: 2

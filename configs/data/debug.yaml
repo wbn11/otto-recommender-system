@@ -1,0 +1,6 @@
+data_mode: debug
+data:
+  max_sessions_per_window: 10000
+  session_hash_seed: 2024
+  parquet_rows_per_file: 250000
+  session_rows_per_file: 100000

@@ -1,0 +1,32 @@
+data_mode: debug
+candidate_k: 100
+
+experiment:
+  description: Target-aware attention DSSM smoke-test profile.
+
+dssm:
+  embedding_dim: 128
+  max_sequence_length: 50
+  batch_size: 256
+  epochs: 1
+  amp: true
+  attention: true
+  hard_negatives: 0
+  default_embedding: false
+  history_dropout: 0.0
+
+faiss:
+  index_type: flat
+  topk: 100
+  nlist: 128
+  nprobe: 8
+  use_gpu: true
+
+ranker:
+  train_session_limit: 10000
+  num_boost_round: 50
+  early_stopping_rounds: 10
+
+runtime:
+  workers: 2
+  duckdb_memory_limit_gb: 8

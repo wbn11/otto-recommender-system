@@ -1,9 +1,14 @@
 numpy==2.2.6
 pandas==2.3.3
 matplotlib==3.10.9
-torch==2.12.0+cu126
 tqdm==4.68.1
 polars==1.41.2
 pyarrow==24.0.0
 PyYAML==6.0.3
 lightgbm==4.6.0
+duckdb>=1.2,<2
+orjson>=3.10,<4
+psutil>=6,<8
+
+# Install CUDA-enabled PyTorch and FAISS with scripts/setup_a6000.sh on Linux.
+# Keeping them out of this file avoids silently installing CPU-only wheels.

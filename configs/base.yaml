@@ -1,0 +1,135 @@
+seed: 2024
+data_mode: debug
+project_name: OTTO
+
+paths:
+  train_jsonl: data/otto-recsys-train.jsonl
+  test_jsonl: data/otto-recsys-test.jsonl
+
+data:
+  use_competition_test: true
+  competition_test_role: late_submission_only
+
+split:
+  strategy: strict_three_window
+  ranker_window_days: 7
+  validation_window_days: 7
+  history_ratio: 0.8
+  stability_shift_days: 7
+
+snapshot: ranker_snapshot
+candidate_k: 200
+recall_sources:
+  - popular
+  - revisit
+  - type_covis
+  - buy2buy
+  - time_covis
+  - dssm
+
+recall:
+  topk_per_source: 200
+  eval_ks:
+    - 20
+    - 50
+    - 100
+  type_weights:
+    clicks: 0.10
+    carts: 0.30
+    orders: 0.60
+  revisit:
+    recency_scale_events: 10.0
+    event_type_weights:
+      clicks: 1.0
+      carts: 3.0
+      orders: 6.0
+  type_covis:
+    recent_events_per_session: 30
+    topk_neighbors: 200
+    pair_buckets: 256
+    event_type_weights:
+      clicks: 1.0
+      carts: 3.0
+      orders: 6.0
+  buy2buy:
+    recent_events_per_session: 30
+    topk_neighbors: 200
+    pair_buckets: 256
+    event_type_weights:
+      carts: 1.0
+      orders: 1.0
+    query_recency_scale_events: 10.0
+    query_event_type_weights:
+      clicks: 1.0
+      carts: 3.0
+      orders: 6.0
+  time_covis:
+    recent_events_per_session: 30
+    topk_neighbors: 200
+    pair_buckets: 256
+    max_time_difference_hours: 24.0
+    time_decay_hours: 1.0
+    query_recency_scale_events: 10.0
+    query_event_type_weights:
+      clicks: 1.0
+      carts: 3.0
+      orders: 6.0
+
+feature_groups:
+  - base
+  - session
+  - item
+  - recall
+  - interaction
+  - temporal
+
+dssm:
+  embedding_dim: 128
+  temperature: 0.1
+  max_sequence_length: 50
+  batch_size: 2048
+  type_loss_weights:
+    clicks: 1.0
+    carts: 3.0
+    orders: 6.0
+  epochs: 3
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  amp: true
+  attention: true
+  hard_negatives: 20
+  hard_negative_pool: 200
+  default_embedding: true
+  default_smoothing_c: 2.0
+  history_dropout: 0.05
+
+faiss:
+  index_type: ivf_flat
+  topk: 200
+  nlist: 4096
+  nprobe: 32
+  query_batch_size: 4096
+  train_sample_size: 1000000
+  use_gpu: true
+
+ranker:
+  type: unified
+  train_session_limit: 100000
+  candidates_per_group: 100
+  objective: lambdarank
+  eval_at: 20
+  learning_rate: 0.05
+  num_leaves: 63
+  min_data_in_leaf: 50
+  num_boost_round: 500
+  early_stopping_rounds: 30
+
+runtime:
+  artifact_root: artifacts
+  parquet_compression: zstd
+  parquet_row_group_size: 250000
+  progress_every_sessions: 100000
+  duckdb_memory_limit_gb: 8
+  max_memory_gb: 40
+  workers: 8
+  resume: true

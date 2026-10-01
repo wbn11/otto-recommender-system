@@ -1,0 +1,6 @@
+data_mode: full
+data:
+  max_sessions_per_window: null
+  session_hash_seed: 2024
+  parquet_rows_per_file: 5000000
+  session_rows_per_file: 2000000

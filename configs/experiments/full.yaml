@@ -1,0 +1,7 @@
+data_mode: full
+experiment:
+  description: Full-scale A6000 experiment profile.
+
+runtime:
+  workers: 4
+  duckdb_memory_limit_gb: 24

@@ -1,0 +1,32 @@
+data_mode: full
+candidate_k: 100
+
+experiment:
+  description: Target-aware attention DSSM ablation on the resume-first full profile.
+
+dssm:
+  embedding_dim: 128
+  max_sequence_length: 50
+  batch_size: 2048
+  epochs: 1
+  amp: true
+  attention: true
+  hard_negatives: 0
+  default_embedding: false
+  history_dropout: 0.0
+
+faiss:
+  index_type: flat
+  topk: 100
+  use_gpu: true
+
+ranker:
+  type: unified
+  train_session_limit: 100000
+  candidates_per_group: 100
+  num_boost_round: 300
+  early_stopping_rounds: 30
+
+runtime:
+  workers: 4
+  duckdb_memory_limit_gb: 24

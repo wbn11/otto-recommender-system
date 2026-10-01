@@ -1,197 +1,172 @@
-# OTTO Multi-Target Recommendation
+# OTTO Multi-Target Session Recommendation
 
-基于 [Kaggle OTTO Recommender System Competition](https://www.kaggle.com/competitions/otto-recommender-system) 数据集构建的多目标推荐系统，目标是为每个 session 分别预测 `clicks`、`carts`、`orders` 三类行为的 Top20 item。
-
-本项目主要用于学习和展示推荐系统完整流程。受本地算力和实验时间限制，当前实验没有使用全部数据训练，而是基于训练集中的 `100000` 条 session 构建离线验证，因此结果不代表该方法在全量数据上的最佳成绩。项目保留了 test 推理和 submission 生成流程，但最终预测结果未提交到 Kaggle 系统，重点放在打通并解释“召回 - 候选池 - 精排 - 提交”的端到端链路。
-
-当前离线主结果：
+基于 Kaggle [OTTO Recommender System](https://www.kaggle.com/competitions/otto-recommender-system)
+数据构建的全量多目标会话推荐系统。系统为每个 Session 分别预测未来的点击、加购和购买商品，
+采用严格时间快照避免统计与模型训练使用未来信息。
 
 ```text
-LightGBM full validation Weighted Recall@20 = 0.3858
+Streaming JSONL / Parquet
+        ↓
+Point-in-time snapshots + query/future labels
+        ↓
+Revisit / Popular / Type-CoVis / Buy2Buy / Time-CoVis / Attention DSSM
+        ↓
+Source-balanced Top100 candidate fusion
+        ↓
+49-dimensional point-in-time feature engineering
+        ↓
+Unified LightGBM LambdaRank
+        ↓
+click / cart / order Top20
 ```
 
-详细架构说明见 [reports/architecture.md](reports/architecture.md)。
+## 最终结果
 
-## 1. 项目概览
+最终指标来自完全未参与召回统计、DSSM 或 LambdaRank 训练的 `final_valid` 窗口。
 
-OTTO 推荐任务需要根据用户 session 的历史行为，预测未来可能点击、加购和购买的商品。本项目将任务统一建模为 `(session, type)` 粒度的多目标推荐：
+| 指标 | Click | Cart | Order | Weighted |
+| :--- | ---: | ---: | ---: | ---: |
+| Attention DSSM Recall@20 | 0.2691 | 0.4213 | 0.5912 | **0.5080** |
+| Candidate Recall@100 | 0.5154 | 0.6707 | 0.9035 | **0.7948** |
+| LambdaRank Recall@20 | 0.4489 | 0.6263 | 0.8899 | **0.7667** |
+
+比赛指标权重为 `click=0.1, cart=0.3, order=0.6`。候选融合与最终精排均使用完整
+`1,801,251` 个 final-validation Session。LightGBM 为适配 48–60GB 内存，从 ranker 窗口固定
+哈希采样 100,000 个 Session 训练；全量数据仍用于召回模型、统计特征和最终评估。
+
+历史仓库中的 `0.3858` 来自原 100k Session、Session 内 8:2 切分的玩具流程，和当前严格
+时间窗口结果不可直接比较。
+
+## 数据与时间切分
+
+原始训练数据约 11GB：
+
+| 统计 | 数量 |
+| :--- | ---: |
+| Session | 12,899,779 |
+| Event | 216,716,096 |
+| Unique item | 1,855,603 |
+| Click | 194,720,954 |
+| Cart | 16,896,191 |
+| Order | 5,098,951 |
+
+数据最大时间记为 `Tmax`，使用两个全局边界：
 
 ```text
-session, clicks -> Top20 item predictions
-session, carts  -> Top20 item predictions
-session, orders -> Top20 item predictions
+T2 = Tmax - 7 days
+T1 = T2 - 7 days
+
+ts < T1                retrieval/ranker snapshot
+T1 <= session_start<T2 LambdaRank training cohort
+T2 <= session_start    final validation cohort
 ```
 
-离线评估指标为比赛使用的 Weighted Recall@20：
+监督窗口内按照时间顺序将每个 Session 的前 80% 作为 query history，后 20% 作为 future
+labels。跨越边界的 Session 按快照时间截断；任何 `ts >= cutoff` 的事件都不会进入对应快照。
+所有 Popular、CoVis、DSSM vocabulary、item statistics 和 temporal features 均绑定其
+point-in-time snapshot。
+
+## 多路召回
+
+- **Revisit**：根据历史商品的行为强度、出现频率与距 Session 结尾的距离召回重复兴趣商品。
+- **Popular**：分别统计 click/cart/order 热门商品，为短历史和候选不足提供兜底。
+- **Type-CoVis**：使用 click/cart/order 权重构建最近 30 个行为内的商品共现矩阵。
+- **Buy2Buy**：只使用 cart/order 行为构建购买意图更强的共现关系。
+- **Time-CoVis**：在 24 小时窗口内使用 `exp(-|Δt|/1h)` 对共现关系进行时间衰减。
+- **Attention DSSM**：融合 item、event type、learned recency embedding，并通过目标类型条件化
+  attention 生成 Session 表征；使用带重复正样本屏蔽的 batch 内负样本训练。
+
+DSSM 使用 128 维向量、最长 50 个历史行为和 FAISS `IndexFlatIP` 精确内积检索。相较固定位置
+池化 DSSM，Attention DSSM 在 final validation 的 Weighted Recall@20 从 `0.4455` 提升到
+`0.5080`；主要增益来自长 Session。
+
+六路召回先各自保留 Top200，再通过 source-balanced round-robin 构建每个
+`(session, target_type)` 的 Top100 总候选池。融合结果保留每一路的 flag、rank、raw score，
+候选不足时仅使用相应目标的 Popular 补齐。
+
+## 特征与排序
+
+统一 LambdaRank 使用 49 个特征：
+
+| 特征组 | 数量 | 示例 |
+| :--- | ---: | :--- |
+| Base | 1 | target type |
+| Session | 8 | 长度、行为计数、持续时间、最近行为、hour、weekday |
+| Item | 4 | 总热度与 click/cart/order 计数 |
+| Recall | 20 | 六路 flag/rank/score、source count、best rank |
+| Interaction | 14 | revisit、位置、频次、last/recent5 CoVis 关系 |
+| Temporal | 2 | 最近 1 天和 7 天热度 |
+
+排序 group 为 `(session, target_type)`，候选命中 future label 时标记为正样本。训练前删除没有
+任何正候选的 group，因为它们不能为 LambdaRank 提供成对排序监督。最终使用一个统一模型，
+通过 `target_type_id` 学习三个目标的差异。
+
+特征选择采用固定数据、固定参数的后向组消融。删除 Interaction、Recall、Item、Session、
+Temporal 均使内部 NDCG@20 下降，最终保留全部 49 维；其中 Interaction 与 Recall 的消融损失
+最大。详细方法见 [M10 特征选择说明](docs/m10_feature_selection.md)。
+
+## 工程实现
+
+- 流式解析 JSONL，统一写入紧凑类型的 ZSTD Parquet，避免完整事件表常驻内存。
+- DuckDB 分桶聚合 CoVis pair、候选和特征，并允许聚合中间结果 spill-to-disk。
+- 每次运行写入独立 `artifacts/{experiment_id}`，记录配置哈希、输入指纹、运行时间、峰值内存、
+  软件和硬件环境，并支持安全缓存与失败续跑。
+- 大规模候选、特征和预测按 Session hash 分区；最终验证以单分片为单位流式推理。
+- A6000 用于 DSSM、embedding 导出和 FAISS；CoVis、特征和 LightGBM 主要使用 CPU、内存与 SSD。
+
+## 环境与运行
+
+目标环境为 Ubuntu/Linux、Python venv、单卡 NVIDIA RTX A6000。PyTorch 和 FAISS GPU 由安装
+脚本单独安装，避免 `pip` 自动选择 CPU 版本。
+
+```bash
+bash scripts/setup_a6000.sh
+source .venv/bin/activate
+python src/pipeline/run.py check-environment --require-gpu
+python -m pytest
+python src/pipeline/run.py --list
+```
+
+分层配置位于 `configs/`，正式 Attention DSSM 与 LambdaRank 使用：
 
 ```text
-clicks: 0.10
-carts:  0.30
-orders: 0.60
+configs/experiments/dssm_attention.yaml
 ```
 
-## 2. 实验设置
+所有正式任务建议通过实验运行器执行：
 
-| 设置项 | 说明 |
-| :--- | :--- |
-| 数据规模 | 使用训练集中的 `100000` 条 session |
-| 验证集划分 | 每个 session 内按时间顺序 `8:2` 切分 |
-| 训练历史 | 前 `80%` 行为作为历史事件 |
-| 验证标签 | 后 `20%` 行为作为未来标签 |
-| 单路召回评估 | Popular、Co-visitation、DSSM 均按 Top20 评估 |
-| 排序候选池 | Co-visitation 和 DSSM 使用 Top50 召回结果构建候选池 |
-| LightGBM 划分 | 按 session 做 `8:2` train/holdout 划分 |
-| 最终预测 | 每个 `(session,type)` 输出 Top20 item |
-
-## 3. 实验结果
-
-召回与固定融合基线：
-
-| 方法 | 设置 | Weighted Recall@20 |
-| :--- | :--- | ---: |
-| 热门召回 | Top20 单路召回 | 0.0096 |
-| 共现召回 | Top20 单路召回 | 0.2656 |
-| DSSM 召回 | Top20 单路召回 | 0.1792 |
-| 固定权重融合 | Popular + Co-visitation + DSSM，输出 Top20 | 0.3028 |
-
-排序阶段结果：
-
-| 阶段 | 含义 | Weighted Recall@20 |
-| :--- | :--- | ---: |
-| 候选池上限 | 在 Top50 候选池中理想选择 Top20 时的召回上限 | 0.4058 |
-| LightGBM holdout | LightGBM 训练时按 session 划出的内部验证集结果 | 0.3793 |
-| LightGBM full validation | 在完整 validation 候选集上预测后的最终离线结果 | 0.3858 |
-
-<p align="center">
-  <img src="reports/assets/result_comparison.png" alt="结果对比" width="720">
-</p>
-
-## 4. 工作流程
-
-Validation / training:
-
-<p align="center">
-  <img src="reports/assets/workflow_validation.png" alt="Validation workflow" width="500">
-</p>
-
-Test / submission:
-
-<p align="center">
-  <img src="reports/assets/workflow_test.png" alt="Test workflow" width="500">
-</p>
-
-## 5. 方法说明
-
-### Recall
-
-- **Popular**: 按 `clicks / carts / orders` 分别统计热门 item，作为短 session 和冷启动兜底召回。
-- **Co-visitation**: 基于 session 内 item 共现构建 item-to-item top-k 邻居矩阵，召回时对最近历史行为赋予更高权重。
-- **DSSM**: 训练 type-aware 双塔模型，将 session 历史和 item 映射到同一向量空间，通过相似度检索召回候选。
-
-DSSM 召回默认使用 PyTorch 全库矩阵相似度计算；安装 FAISS 后，可以通过 `--retrieval-backend faiss` 切换为向量索引检索。
-
-### Candidate Pool
-
-候选池合并 Popular、Co-visitation、DSSM 三路召回结果，并保留各召回源的 rank、rank-based score、部分 raw score 归一化特征，以及 `source_count`、`min_rank`、`rrf_score` 等多源一致性特征。
-
-Top50 candidate oracle 为 `0.4058`，说明当前候选池上限高于最终排序结果，后续如果继续优化，主要空间在排序模型和特征。
-
-### Ranking
-
-排序阶段使用 LightGBM LambdaRank：
-
-- group 为 `(session,type)`。
-- label 表示候选 `aid` 是否命中该目标行的未来真实 labels。
-- 特征包括召回源信息、item 统计、session 统计和 session history 特征。
-- 最终每个 `(session,type)` 输出 Top20。
-
-## 6. 快速开始
-
-以下命令假设已经进入项目根目录，并激活了包含项目依赖的 Python 环境。
-
-安装依赖：
-
-```powershell
-pip install -r requirements.txt
+```bash
+python src/pipeline/experiment.py run \
+  --config configs/experiments/dssm_attention.yaml \
+  --experiment-id EXPERIMENT_ID \
+  --stage STAGE_NAME \
+  --input INPUT_PATH \
+  -- \
+  python src/pipeline/run.py TASK [TASK_ARGS]
 ```
 
-查看全部 workflow 和 task：
+环境、SSH 复制和实验生命周期详见 [开发说明](docs/development.md)。
 
-```powershell
-python src\pipeline\run.py --list
-```
-
-复现当前离线主结果：
-
-```powershell
-python src\pipeline\run.py --workflow ranker
-```
-
-从 validation 构建召回候选池并分析候选上限：
-
-```powershell
-python src\pipeline\run.py --workflow validation
-```
-
-从 validation 候选池到 LightGBM 精排完整运行：
-
-```powershell
-python src\pipeline\run.py --workflow all
-```
-
-生成 test submission：
-
-```powershell
-python src\pipeline\run.py --workflow test
-```
-
-也可以单独执行某个 task，例如只评估已有预测：
-
-```powershell
-python src\pipeline\run.py evaluate --pred-file ranker_predictions.csv
-```
-
-可选使用 FAISS 进行 DSSM 向量检索：
-
-```powershell
-python src\pipeline\run.py dssm-recall --k 50 --retrieval-backend faiss
-```
-
-FAISS 是可选依赖，可按环境选择 `pip install faiss-cpu` 或 Conda 安装；如果未安装 FAISS，请继续使用默认的 `--retrieval-backend torch`。
-
-## 7. 项目结构
+## 项目结构
 
 ```text
-src/data/        validation/test data building
-src/recall/      popular, co-visitation, DSSM, recall candidates
-src/models/      DSSM training
-src/rank/        LightGBM training and prediction
-src/evaluation/  offline evaluation, candidate analysis, submission
-configs/         default configuration
-reports/         detailed architecture notes and figures
+configs/        layered data and experiment configuration
+docs/           development and experiment methodology
+scripts/        A6000 venv bootstrap
+src/data/       streaming ingestion, schemas and temporal split
+src/recall/     traditional recall, DSSM retrieval and candidate fusion
+src/models/     fixed-position and target-aware attention DSSM
+src/features/   49-feature registry and partitioned feature builder
+src/rank/       LambdaRank training, feature selection and streaming inference
+src/evaluation/ offline analysis and metrics
+src/pipeline/   task entrypoint and reproducible experiment runner
+tests/          unit and debug integration tests
 ```
 
-## 8. 数据与产物
+## 限制
 
-原始数据和实验产物不提交到 Git：
-
-```text
-data/       raw OTTO jsonl files
-outputs/    parquet, csv, pkl, model artifacts
-```
-
-当前主结果依赖的关键产物包括：
-
-- `train_events.parquet`
-- `valid_labels.parquet`
-- `recall_candidates.parquet`
-- `ranker_train_data.parquet`
-- `lgbm_ranker.txt`
-- `ranker_predictions.csv`
-
-## 9. 后续优化
-
-- 补充更多召回源，提高候选池覆盖率。
-- 做更细的 ranker 特征消融和参数搜索。
-- 优化全量 test 推理性能。
-- 增加实验可视化报告。
+- Kaggle 比赛已经结束，本项目报告严格离线时间验证结果，不宣称线上榜单成绩。
+- 为控制 48–60GB 主机内存，LambdaRank 使用固定 100k Session 样本训练，而非全部 ranker cohort。
+- FAISS 当前使用 FlatIP 做精确检索；尚未将 IVF Recall–Latency benchmark 纳入最终主结果。
+- 未进入最终模型的 hard negative、default session embedding 和更细粒度特征搜索不作为项目结论。
+- `data/`、`artifacts/`、`outputs/`、模型 checkpoint 与预测文件均不提交 Git。
