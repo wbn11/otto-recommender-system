@@ -115,7 +115,7 @@ def test_tiny_attention_training_writes_loadable_checkpoint(tmp_path):
         ),
         encoding="utf-8",
     )
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/dssm_attention_debug.yaml")
     config["runtime"]["workers"] = 0
     config["dssm"].update(
         {

@@ -1,11 +1,15 @@
 data_mode: debug
+candidate_k: 100
+
 experiment:
-  description: End-to-end correctness and smoke-test profile.
+  description: Small deterministic smoke profile for the maintained pipeline.
 
 dssm:
   batch_size: 256
   epochs: 1
   hard_negatives: 0
+  default_embedding: false
+  history_dropout: 0.0
 
 faiss:
   index_type: flat

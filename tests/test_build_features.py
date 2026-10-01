@@ -135,7 +135,7 @@ def test_build_features_point_in_time_schema_and_values(tmp_path):
         )
         matrix_dirs[name] = directory
 
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/pipeline_smoke.yaml")
     config["candidate_k"] = 2
     config["runtime"].update({"workers": 1, "duckdb_memory_limit_gb": 1})
     output = tmp_path / "features"

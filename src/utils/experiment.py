@@ -20,17 +20,6 @@ from utils.config import config_hash, dump_yaml
 
 
 MANIFEST_SCHEMA_VERSION = 1
-ARTIFACT_SUBDIRS = (
-    "data",
-    "snapshots",
-    "recall",
-    "candidates",
-    "features",
-    "models",
-    "metrics",
-    "logs",
-    "stages",
-)
 TRACKED_PACKAGES = (
     "numpy",
     "pandas",
@@ -265,14 +254,22 @@ class ExperimentRun:
             experiment_id = f"{stamp}-{digest}"
         if not experiment_id.replace("-", "").replace("_", "").isalnum():
             raise ValueError("experiment_id may contain only letters, numbers, '-' and '_'.")
+        first_token = experiment_id.replace("_", "-").split("-", maxsplit=1)[0]
+        if (
+            len(first_token) > 1
+            and first_token[0].lower() == "m"
+            and first_token[1:].isdigit()
+        ):
+            raise ValueError(
+                "experiment_id must use a method name, not a milestone prefix "
+                "such as 'm3-' or 'm4-'."
+            )
 
         artifact_root = Path(config.get("runtime", {}).get("artifact_root", "artifacts"))
         if not artifact_root.is_absolute():
             artifact_root = project_root / artifact_root
         experiment_dir = artifact_root / experiment_id
         experiment_dir.mkdir(parents=True, exist_ok=True)
-        for name in ARTIFACT_SUBDIRS:
-            (experiment_dir / name).mkdir(exist_ok=True)
 
         manifest_path = experiment_dir / "manifest.json"
         if manifest_path.exists():
@@ -327,7 +324,9 @@ class ExperimentRun:
         manifest.setdefault("stages", {})[name] = record
         manifest["updated_at"] = utc_now()
         _write_json(self.manifest_path, manifest)
-        _write_json(self.experiment_dir / "stages" / f"{name}.json", record)
+        stages_dir = self.experiment_dir / "stages"
+        stages_dir.mkdir(exist_ok=True)
+        _write_json(stages_dir / f"{name}.json", record)
 
     def run_stage(
         self,
@@ -347,6 +346,7 @@ class ExperimentRun:
         started_at = utc_now()
         start_time = time.perf_counter()
         log_path = self.experiment_dir / "logs" / f"{name}.log"
+        log_path.parent.mkdir(exist_ok=True)
         environment = os.environ.copy()
         environment["OTTO_EXPERIMENT_DIR"] = str(self.experiment_dir)
         environment["OTTO_CONFIG_PATH"] = str(self.experiment_dir / "resolved_config.yaml")

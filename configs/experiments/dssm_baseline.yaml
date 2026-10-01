@@ -2,7 +2,7 @@ data_mode: full
 candidate_k: 100
 
 experiment:
-  description: Resume-first full-data profile for the first complete strict pipeline.
+  description: Fixed-position DSSM comparison under the final full-data profile.
 
 dssm:
   embedding_dim: 128

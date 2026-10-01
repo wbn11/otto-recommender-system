@@ -4,11 +4,6 @@ project_name: OTTO
 
 paths:
   train_jsonl: data/otto-recsys-train.jsonl
-  test_jsonl: data/otto-recsys-test.jsonl
-
-data:
-  use_competition_test: true
-  competition_test_role: late_submission_only
 
 split:
   strategy: strict_three_window
@@ -18,7 +13,7 @@ split:
   stability_shift_days: 7
 
 snapshot: ranker_snapshot
-candidate_k: 200
+candidate_k: 100
 recall_sources:
   - popular
   - revisit
@@ -92,20 +87,20 @@ dssm:
     clicks: 1.0
     carts: 3.0
     orders: 6.0
-  epochs: 3
+  epochs: 1
   learning_rate: 0.001
   weight_decay: 0.00001
   amp: true
   attention: true
-  hard_negatives: 20
+  hard_negatives: 0
   hard_negative_pool: 200
-  default_embedding: true
+  default_embedding: false
   default_smoothing_c: 2.0
-  history_dropout: 0.05
+  history_dropout: 0.0
 
 faiss:
-  index_type: ivf_flat
-  topk: 200
+  index_type: flat
+  topk: 100
   nlist: 4096
   nprobe: 32
   query_batch_size: 4096
@@ -121,7 +116,7 @@ ranker:
   learning_rate: 0.05
   num_leaves: 63
   min_data_in_leaf: 50
-  num_boost_round: 500
+  num_boost_round: 300
   early_stopping_rounds: 30
 
 runtime:
@@ -129,7 +124,7 @@ runtime:
   parquet_compression: zstd
   parquet_row_group_size: 250000
   progress_every_sessions: 100000
-  duckdb_memory_limit_gb: 8
+  duckdb_memory_limit_gb: 24
   max_memory_gb: 40
-  workers: 8
+  workers: 4
   resume: true

@@ -123,7 +123,7 @@ def test_candidate_fusion_round_robin_backfill_and_features(tmp_path):
             )
     pq.write_table(pa.Table.from_pylist(dssm_rows, schema=dssm_schema), dssm_dir / "part-00000.parquet")
 
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/pipeline_smoke.yaml")
     config["candidate_k"] = 5
     config["recall"]["eval_ks"] = [2, 5]
     config["runtime"].update({"workers": 1, "duckdb_memory_limit_gb": 1})

@@ -13,7 +13,6 @@ scripts/                 environment/bootstrap commands
 src/data/                ingestion, schemas and temporal splitting
 src/recall/              Popular, Revisit, Multi-CoVis and DSSM retrieval
 src/models/              trainable model definitions and training code
-src/candidate/           source-balanced candidate union
 src/features/            point-in-time feature builders and registry
 src/rank/                LightGBM training and partitioned inference
 src/evaluation/          offline metrics and experiment analyses
@@ -22,10 +21,8 @@ src/utils/               shared configuration and manifest utilities
 tests/                   unit and debug integration tests
 ```
 
-Existing modules are replaced milestone by milestone. An old implementation is
-removed only after its replacement passes the debug smoke test. The old
-`outputs/` directory is never consumed by the upgraded pipeline and may be
-deleted after the new debug end-to-end workflow passes.
+Git history retains the former internship implementation; the working tree
+contains only the final strict pipeline and its maintained comparison paths.
 
 Canonical full-data Parquet uses 5,000,000 event rows and 2,000,000 session
 rows per physical file. Each file contains 250,000-row groups, giving
@@ -96,6 +93,19 @@ wsl rsync -avh --progress `
   -e "ssh -p PORT"
 ```
 
+After removing obsolete tracked files, mirror only the maintained source
+directories with scoped deletion. This removes stale code on the server while
+leaving `data/`, `artifacts/`, `outputs/`, `.venv/` and `.git/` untouched:
+
+```powershell
+wsl rsync -avh --delete /mnt/e/OTTO/configs/ USER@SERVER_IP:/home/USER/wbn/OTTO/configs/ -e "ssh -p PORT"
+wsl rsync -avh --delete /mnt/e/OTTO/docs/   USER@SERVER_IP:/home/USER/wbn/OTTO/docs/   -e "ssh -p PORT"
+wsl rsync -avh --delete /mnt/e/OTTO/scripts/ USER@SERVER_IP:/home/USER/wbn/OTTO/scripts/ -e "ssh -p PORT"
+wsl rsync -avh --delete /mnt/e/OTTO/src/     USER@SERVER_IP:/home/USER/wbn/OTTO/src/     -e "ssh -p PORT"
+wsl rsync -avh --delete /mnt/e/OTTO/tests/   USER@SERVER_IP:/home/USER/wbn/OTTO/tests/   -e "ssh -p PORT"
+wsl rsync -avh /mnt/e/OTTO/README.md /mnt/e/OTTO/pyproject.toml /mnt/e/OTTO/requirements.txt /mnt/e/OTTO/requirements-dev.txt USER@SERVER_IP:/home/USER/wbn/OTTO/ -e "ssh -p PORT"
+```
+
 Copy the labeled training data separately with resumable partial files:
 
 ```powershell
@@ -105,39 +115,25 @@ wsl rsync -avh --partial --info=progress2 `
   -e "ssh -p PORT"
 ```
 
-The competition test JSONL has no labels and is not used for model selection or
-offline metrics. Kaggle currently exposes a Late Submission action for OTTO, so
-keep the file locally and upload it when the selected final model is ready for
-an optional post-competition score.
+The competition test JSONL has no labels and is not required by the maintained
+offline pipeline. Copy only `otto-recsys-train.jsonl` unless a separate
+submission workflow is added later. Running the command again transfers only
+changed or incomplete content. Do not add `--delete`: the upload command must
+not remove remote artifacts.
 
-Optional late-submission test upload:
-
-```powershell
-wsl rsync -avh --partial --info=progress2 `
-  /mnt/e/OTTO/data/otto-recsys-test.jsonl `
-  USER@SERVER_IP:/home/USER/wbn/OTTO/data/ `
-  -e "ssh -p PORT"
-```
-
-Running either command again transfers only changed or incomplete content. Do
-not add `--delete`: the upload command must not remove remote artifacts.
-
-If WSL/rsync is unavailable, package code only with Windows `tar.exe`, upload
-the small archive, then extract it remotely:
+If WSL/rsync is unavailable, use the Windows built-in `tar.exe`, `scp` and
+`ssh`. The server validates the archive, moves the previous source tree to a
+timestamped backup, and then extracts the clean tree. Generated data and the
+virtual environment are outside the replacement list:
 
 ```powershell
-tar.exe -czf E:\otto-code.tar.gz `
-  --exclude=OTTO/.git `
-  --exclude=OTTO/.venv `
-  --exclude=OTTO/data `
-  --exclude=OTTO/outputs `
-  --exclude=OTTO/artifacts `
-  -C E:\ OTTO
+tar.exe -czf E:\OTTO-source-clean.tar.gz -C E:\OTTO `
+  configs docs scripts src tests `
+  README.md pyproject.toml requirements.txt requirements-dev.txt
 
-scp -P PORT E:\otto-code.tar.gz USER@SERVER_IP:/tmp/otto-code.tar.gz
+scp -P PORT E:\OTTO-source-clean.tar.gz USER@SERVER_IP:/tmp/OTTO-source-clean.tar.gz
 
-ssh -p PORT USER@SERVER_IP `
-  "mkdir -p /home/USER/wbn && tar -xzf /tmp/otto-code.tar.gz -C /home/USER/wbn"
+ssh -p PORT USER@SERVER_IP 'set -e; PROJECT=/home/USER/wbn/OTTO; ARCHIVE=/tmp/OTTO-source-clean.tar.gz; tar -tzf "$ARCHIVE" >/dev/null; BACKUP="/home/USER/wbn/OTTO-source-backup-$(date +%Y%m%d-%H%M%S)"; mkdir -p "$BACKUP"; for name in configs docs scripts src tests reports README.md pyproject.toml requirements.txt requirements-dev.txt; do if [ -e "$PROJECT/$name" ]; then mv "$PROJECT/$name" "$BACKUP/"; fi; done; tar -xzf "$ARCHIVE" -C "$PROJECT"; echo "backup=$BACKUP"'
 ```
 
 Verify the upload before installing dependencies:
@@ -149,20 +145,21 @@ ssh -p PORT USER@SERVER_IP `
 
 ## Experiment lifecycle
 
-Initialize a debug experiment:
+Initialize a smoke experiment. Experiment identifiers use method names rather
+than development milestone numbers:
 
 ```bash
 python src/pipeline/experiment.py init \
-  --config configs/experiments/debug.yaml \
-  --experiment-id debug-m0
+  --config configs/experiments/pipeline_smoke.yaml \
+  --experiment-id environment-smoke
 ```
 
 Run a tracked stage:
 
 ```bash
 python src/pipeline/experiment.py run \
-  --config configs/experiments/debug.yaml \
-  --experiment-id debug-m0 \
+  --config configs/experiments/pipeline_smoke.yaml \
+  --experiment-id environment-smoke \
   --stage tests \
   --input configs/base.yaml \
   -- python -m pytest
@@ -172,9 +169,33 @@ Inspect the resolved environment, configuration and stage state:
 
 ```bash
 python src/pipeline/experiment.py status \
-  --config configs/experiments/debug.yaml \
-  --experiment-id debug-m0
+  --config configs/experiments/pipeline_smoke.yaml \
+  --experiment-id environment-smoke
 ```
 
 A completed stage is reused only when the resolved configuration, command and
 all declared input fingerprints match. Pass `--force` to rerun deliberately.
+Fresh experiments initially contain only `manifest.json` and
+`resolved_config.yaml`. `logs/`, `stages/` and method output directories are
+created lazily only when a stage actually writes them.
+
+Use method names for experiment directories; milestone prefixes such as `m3-`
+or `m4-` are not part of the maintained naming convention:
+
+| Purpose | Recommended experiment id |
+| :--- | :--- |
+| Full Parquet ingestion | `data-full` |
+| Point-in-time split | `time-split` |
+| Popular and Revisit | `popular-revisit` |
+| CoVis matrices and recall | `type-covis`, `buy2buy`, `time-covis` |
+| Fixed-position DSSM comparison | `dssm-baseline` |
+| Final Attention DSSM | `dssm-attention` |
+| Final fused candidates | `candidates-attention` |
+| Final features | `features-attention` |
+| Final ranker | `lambdarank-attention` |
+| Feature-group ablation | `feature-selection` |
+
+An experiment directory therefore contains only its metadata, stage logs and
+the outputs written by that method. For example, `type-covis/` creates
+`recall/`, `logs/` and `stages/`; it does not create empty `models/`,
+`features/`, `candidates/` or `snapshots/` directories.

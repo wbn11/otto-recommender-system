@@ -2,7 +2,7 @@ data_mode: full
 candidate_k: 100
 
 experiment:
-  description: Target-aware attention DSSM ablation on the resume-first full profile.
+  description: Final target-aware attention DSSM and LambdaRank profile.
 
 dssm:
   embedding_dim: 128

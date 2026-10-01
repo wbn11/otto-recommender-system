@@ -120,7 +120,7 @@ FUSED_CANDIDATE_SCHEMA = pa.schema([
 ])
 
 
-# M8 uses one explicit schema for both ranker training and inference.  The
+# Ranking uses one explicit schema for both training and inference. The
 # first six columns identify a row; the remaining 49 columns are registered
 # model features in ``features/registry.py``.
 RANKER_FEATURE_SCHEMA_VERSION = "otto_ranker_features_v1"

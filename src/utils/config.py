@@ -1,10 +1,4 @@
-"""Configuration helpers for legacy tasks and reproducible experiments.
-
-The original scripts still call :func:`load_config` and therefore continue to
-read ``configs/default.yaml``.  New experiment code uses
-:func:`resolve_project_config`, which layers ``base.yaml``, a data profile and
-an experiment override without introducing a configuration framework.
-"""
+"""Layered configuration helpers for reproducible experiments."""
 
 from __future__ import annotations
 
@@ -15,26 +9,14 @@ from pathlib import Path
 from typing import Any, Mapping
 
 _ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_PATH = _ROOT / "configs" / "default.yaml"
 _BASE_PATH = _ROOT / "configs" / "base.yaml"
-
-
-def load_config(path=None):
-    cfg_path = Path(path) if path else _DEFAULT_PATH
-    try:
-        import yaml
-
-        with open(cfg_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except (FileNotFoundError, ImportError):
-        return {}
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
     """Load one required YAML mapping.
 
-    Unlike the legacy loader, this function fails loudly because silently
-    falling back to defaults would make experiment manifests misleading.
+    This function fails loudly because silently falling back to defaults would
+    make experiment manifests misleading.
     """
 
     try:
@@ -73,10 +55,9 @@ def resolve_project_config(
     experiment = load_yaml(experiment_path) if experiment_path else {}
     data_mode = experiment.get("data_mode", resolved.get("data_mode", "debug"))
     profile_path = _ROOT / "configs" / "data" / f"{data_mode}.yaml"
-    if profile_path.exists():
-        resolved = deep_merge(resolved, load_yaml(profile_path))
-    elif data_mode != "legacy":
+    if not profile_path.exists():
         raise FileNotFoundError(f"Unknown data mode {data_mode!r}: {profile_path}")
+    resolved = deep_merge(resolved, load_yaml(profile_path))
     return deep_merge(resolved, experiment)
 
 

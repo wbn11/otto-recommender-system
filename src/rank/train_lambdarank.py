@@ -1,4 +1,4 @@
-"""Train the unified M9 LightGBM LambdaRank model.
+"""Train the unified LightGBM LambdaRank model.
 
 Only groups containing at least one recalled positive are useful to a pairwise
 ranking objective.  This trainer filters all-zero groups, keeps every one of
@@ -60,7 +60,7 @@ def _feature_files(path: str | Path) -> tuple[Path, list[Path]]:
         raise FileNotFoundError(root)
     files = sorted((root / "parts").glob("session-bucket-*-target-*.parquet"))
     if not files:
-        raise FileNotFoundError(f"No M8 feature shards below {root}")
+        raise FileNotFoundError(f"No ranker feature shards below {root}")
     for file in files:
         schema = pq.read_schema(file)
         if schema.names != RANKER_FEATURE_SCHEMA.names or schema.types != RANKER_FEATURE_SCHEMA.types:
@@ -232,7 +232,7 @@ def train_lambdarank(
     num_boost_round: int | None = None,
     feature_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Train a unified LambdaRank model from a canonical M8 feature subset."""
+    """Train a unified LambdaRank model from a canonical feature subset."""
 
     import lightgbm as lgb
     import numpy as np

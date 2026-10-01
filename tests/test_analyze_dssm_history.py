@@ -109,7 +109,7 @@ def test_dssm_history_analysis_reproduces_overall_metrics(tmp_path):
         encoding="utf-8",
     )
 
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/pipeline_smoke.yaml")
     config["dssm"]["max_sequence_length"] = 50
     config["recall"]["eval_ks"] = [1, 2]
     config["runtime"].update({"workers": 1, "duckdb_memory_limit_gb": 1})

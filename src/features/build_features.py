@@ -1,4 +1,4 @@
-"""Build the versioned M8 LightGBM feature table without future leakage.
+"""Build the versioned LightGBM feature table without future leakage.
 
 Purpose
 -------
@@ -630,7 +630,8 @@ def build_features(
     registry = registry_payload(enabled_groups)
     if set(enabled_groups) != set(FEATURE_GROUPS):
         raise ValueError(
-            "M8 materializes the canonical full schema; enable all six feature groups. "
+            "The feature builder materializes the canonical full schema; "
+            "enable all six feature groups. "
             "Feature ablation is performed by the ranker without rebuilding Parquet."
         )
 

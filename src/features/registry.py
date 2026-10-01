@@ -1,4 +1,4 @@
-"""Explicit, versioned registry for the 49 M8 ranking features.
+"""Explicit, versioned registry for the 49 ranking features.
 
 The registry is deliberately data rather than prose hidden in a training
 script.  LightGBM training, streaming inference, ablation and README tables
@@ -161,7 +161,7 @@ FEATURE_GROUPS = {
 
 def validate_registry() -> None:
     if len(FEATURES) != 49 or len(set(FEATURE_NAMES)) != len(FEATURE_NAMES):
-        raise AssertionError("The M8 registry must contain 49 unique features")
+        raise AssertionError("The ranker registry must contain 49 unique features")
     schema_feature_names = tuple(RANKER_FEATURE_SCHEMA.names[6:])
     if schema_feature_names != FEATURE_NAMES:
         raise AssertionError(

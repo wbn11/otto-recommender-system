@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from utils.experiment import ARTIFACT_SUBDIRS, ExperimentRun, file_fingerprint
+from utils.experiment import ExperimentRun, file_fingerprint
 
 
 def test_experiment_initialization_and_safe_resume(tmp_path):
@@ -12,7 +12,8 @@ def test_experiment_initialization_and_safe_resume(tmp_path):
     experiment = ExperimentRun.create(tmp_path, config, "unit-test")
 
     assert (experiment.experiment_dir / "resolved_config.yaml").exists()
-    assert all((experiment.experiment_dir / name).is_dir() for name in ARTIFACT_SUBDIRS)
+    assert (experiment.experiment_dir / "manifest.json").exists()
+    assert not any(path.is_dir() for path in experiment.experiment_dir.iterdir())
     assert ExperimentRun.create(tmp_path, config, "unit-test").experiment_dir == experiment.experiment_dir
 
     with pytest.raises(ValueError, match="different configuration"):
@@ -31,6 +32,9 @@ def test_stage_cache_uses_command_config_and_input_fingerprint(tmp_path):
 
     assert first["status"] == "completed"
     assert second["status"] == "cached"
+    assert sorted(
+        path.name for path in experiment.experiment_dir.iterdir() if path.is_dir()
+    ) == ["logs", "stages"]
     assert "stage-ok" in (experiment.experiment_dir / "logs" / "sample.log").read_text(encoding="utf-8")
 
     input_path.write_text("version-two", encoding="utf-8")
@@ -50,6 +54,16 @@ def test_stage_name_cannot_escape_stage_directory(tmp_path):
     )
     with pytest.raises(ValueError, match="stage name"):
         experiment.run_stage("../escape", [sys.executable, "-c", "pass"])
+
+
+def test_experiment_id_rejects_milestone_prefix(tmp_path):
+    config = {"runtime": {"artifact_root": "artifacts"}}
+
+    with pytest.raises(ValueError, match="method name"):
+        ExperimentRun.create(tmp_path, config, "m3-time-covis-smoke")
+
+    experiment = ExperimentRun.create(tmp_path, config, "time-covis-smoke")
+    assert experiment.experiment_dir.name == "time-covis-smoke"
 
 
 def test_directory_fingerprint_covers_nested_file_contents(tmp_path):

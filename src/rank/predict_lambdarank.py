@@ -1,4 +1,4 @@
-"""Stream M8 feature shards through the selected LambdaRank model.
+"""Stream feature shards through the selected LambdaRank model.
 
 Each input shard contains one target type and is ordered by session and
 candidate rank.  It is loaded independently, scored, reduced from K=100 to
@@ -78,7 +78,7 @@ def _feature_files(
         _check_schema(file, RANKER_FEATURE_SCHEMA, "ranker feature")
         files.append((bucket, target_type, file))
     if not files:
-        raise FileNotFoundError(f"No canonical M8 feature shards below {root}")
+        raise FileNotFoundError(f"No canonical ranker feature shards below {root}")
     buckets = sorted({bucket for bucket, _, _ in files})
     missing = [
         (bucket, target_type)

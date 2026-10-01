@@ -99,7 +99,7 @@ def test_flatip_dssm_recall_writes_target_conditioned_lists(tmp_path):
         labels,
     )
 
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/dssm_baseline_debug.yaml")
     config["faiss"].update({"topk": 2, "query_batch_size": 1, "use_gpu": False})
     config["recall"]["eval_ks"] = [1, 2]
     config["runtime"].update({"workers": 1, "duckdb_memory_limit_gb": 1})
@@ -150,7 +150,7 @@ def test_dssm_recall_rejects_the_wrong_snapshot_dataset(tmp_path):
     )
     empty = tmp_path / "placeholder"
     empty.write_bytes(b"x")
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/dssm_baseline_debug.yaml")
     with pytest.raises(AssertionError, match="not 'ranker'"):
         generate_dssm_recall(
             data_dir,

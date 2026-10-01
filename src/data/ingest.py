@@ -397,7 +397,7 @@ def ingest_jsonl(
 
 def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Stream raw OTTO JSONL into canonical Parquet shards.")
-    parser.add_argument("--dataset", choices=("train", "test"), default="train")
+    parser.add_argument("--dataset", choices=("train",), default="train")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--input", type=Path)
     parser.add_argument("--output-dir", type=Path)

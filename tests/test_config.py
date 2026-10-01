@@ -16,8 +16,10 @@ def test_deep_merge_replaces_lists_and_preserves_nested_values():
     assert base["nested"]["replace"] == 2
 
 
-def test_debug_experiment_loads_base_profile_and_override():
-    config = resolve_project_config(ROOT / "configs" / "experiments" / "debug.yaml")
+def test_smoke_experiment_loads_base_profile_and_override():
+    config = resolve_project_config(
+        ROOT / "configs" / "experiments" / "pipeline_smoke.yaml"
+    )
 
     assert config["data_mode"] == "debug"
     assert config["data"]["max_sessions_per_window"] == 10_000
@@ -30,8 +32,10 @@ def test_config_hash_is_order_independent():
     assert config_hash({"a": 1, "b": {"c": 2}}) == config_hash({"b": {"c": 2}, "a": 1})
 
 
-def test_attention_ablation_matches_resume_training_settings():
-    resume = resolve_project_config(ROOT / "configs" / "experiments" / "resume.yaml")
+def test_attention_ablation_matches_baseline_training_settings():
+    baseline = resolve_project_config(
+        ROOT / "configs" / "experiments" / "dssm_baseline.yaml"
+    )
     attention = resolve_project_config(
         ROOT / "configs" / "experiments" / "dssm_attention.yaml"
     )
@@ -50,8 +54,8 @@ def test_attention_ablation_matches_resume_training_settings():
         "default_embedding",
         "history_dropout",
     ):
-        assert attention["dssm"][key] == resume["dssm"][key]
-    assert resume["dssm"]["attention"] is False
+        assert attention["dssm"][key] == baseline["dssm"][key]
+    assert baseline["dssm"]["attention"] is False
     assert attention["dssm"]["attention"] is True
 
 

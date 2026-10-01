@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 class FixedPositionDSSM(nn.Module):
-    """Keep the legacy pooling architecture while using PAD=0, UNK=1."""
+    """Use fixed-position pooling with the canonical PAD=0, UNK=1 ids."""
 
     def __init__(
         self,

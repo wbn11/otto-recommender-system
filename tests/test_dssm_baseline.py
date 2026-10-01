@@ -74,7 +74,7 @@ def test_item_embedding_uses_sparse_gradients():
 
 
 def test_full_profile_keeps_128_dimensions():
-    config = resolve_project_config("configs/experiments/full.yaml")
+    config = resolve_project_config("configs/experiments/dssm_baseline.yaml")
     assert config["dssm"]["embedding_dim"] == 128
 
 
@@ -119,7 +119,7 @@ def test_tiny_streaming_training_writes_reproducible_checkpoint(tmp_path):
         ),
         encoding="utf-8",
     )
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/dssm_baseline_debug.yaml")
     config["runtime"]["workers"] = 0
     config["dssm"].update({"embedding_dim": 8, "batch_size": 2, "epochs": 1, "amp": False})
     experiment = tmp_path / "experiment"
@@ -174,7 +174,7 @@ def test_valid_snapshot_is_a_supported_point_in_time_training_source(tmp_path):
         ),
         encoding="utf-8",
     )
-    config = resolve_project_config("configs/experiments/debug.yaml")
+    config = resolve_project_config("configs/experiments/dssm_baseline_debug.yaml")
     config["runtime"]["workers"] = 0
     config["dssm"].update({"embedding_dim": 4, "batch_size": 1, "epochs": 1, "amp": False})
     report = train_baseline(source, tmp_path / "valid-experiment", config, device_name="cpu")
