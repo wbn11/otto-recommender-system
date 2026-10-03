@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="470" viewBox="0 0 960 470" role="img" aria-labelledby="title desc">
+  <title id="title">删除特征组后的 NDCG 变化</title>
+  <desc id="desc">分别删除 Temporal、Session、Item、Recall 和 Interaction 特征组后，内部验证 NDCG@20 均下降，其中 Interaction 和 Recall 影响最大。</desc>
+  <style>
+    :root { color-scheme: light dark; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; fill: #1f2328; }
+    .title { font-size: 22px; font-weight: 600; }
+    .subtitle, .axis, .note { fill: #59636e; }
+    .subtitle { font-size: 13px; }
+    .axis, .value, .note { font-size: 12px; }
+    .label { font-size: 14px; font-weight: 600; }
+    .grid { stroke: #d0d7de; stroke-width: 1; }
+    .bar { fill: #7c3aed; }
+    .bar-strong { fill: #5b21b6; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+      .subtitle, .axis, .note { fill: #9da7b3; }
+      .grid { stroke: #30363d; }
+      .bar { fill: #a78bfa; }
+      .bar-strong { fill: #c4b5fd; }
+    }
+  </style>
+
+  <text class="title" x="70" y="38">特征组消融：删除后 NDCG@20 变化</text>
+  <text class="subtitle" x="70" y="61">负值表示性能下降；越向左说明该特征组越重要。完整模型 NDCG@20 = 0.75268791</text>
+
+  <g>
+    <line class="grid" x1="340" y1="82" x2="340" y2="390"/>
+    <line class="grid" x1="452" y1="82" x2="452" y2="390"/>
+    <line class="grid" x1="564" y1="82" x2="564" y2="390"/>
+    <line class="grid" x1="676" y1="82" x2="676" y2="390"/>
+    <line class="grid" x1="788" y1="82" x2="788" y2="390"/>
+    <line class="grid" x1="900" y1="82" x2="900" y2="390"/>
+    <text class="axis" x="340" y="414" text-anchor="middle">−0.010</text>
+    <text class="axis" x="452" y="414" text-anchor="middle">−0.008</text>
+    <text class="axis" x="564" y="414" text-anchor="middle">−0.006</text>
+    <text class="axis" x="676" y="414" text-anchor="middle">−0.004</text>
+    <text class="axis" x="788" y="414" text-anchor="middle">−0.002</text>
+    <text class="axis" x="900" y="414" text-anchor="middle">0</text>
+    <text class="axis" x="620" y="446" text-anchor="middle">ΔNDCG@20（删除特征组 − 完整模型）</text>
+  </g>
+
+  <g>
+    <text class="label" x="260" y="116" text-anchor="end">Temporal</text>
+    <rect class="bar" x="855.0" y="94" width="45.0" height="30" rx="4"/>
+    <text class="value" x="845" y="114" text-anchor="end">−0.00080</text>
+
+    <text class="label" x="260" y="176" text-anchor="end">Session</text>
+    <rect class="bar" x="712.4" y="154" width="187.6" height="30" rx="4"/>
+    <text class="value" x="702" y="174" text-anchor="end">−0.00335</text>
+
+    <text class="label" x="260" y="236" text-anchor="end">Item</text>
+    <rect class="bar" x="670.2" y="214" width="229.8" height="30" rx="4"/>
+    <text class="value" x="660" y="234" text-anchor="end">−0.00410</text>
+
+    <text class="label" x="260" y="296" text-anchor="end">Recall</text>
+    <rect class="bar-strong" x="618.3" y="274" width="281.7" height="30" rx="4"/>
+    <text class="value" x="608" y="294" text-anchor="end">−0.00503</text>
+
+    <text class="label" x="260" y="356" text-anchor="end">Interaction</text>
+    <rect class="bar-strong" x="355.4" y="334" width="544.6" height="30" rx="4"/>
+    <text class="value" x="345" y="354" text-anchor="end">−0.00973</text>
+  </g>
+</svg>

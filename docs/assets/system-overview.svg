@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">OTTO 多目标会话推荐系统原理图</title>
+  <desc id="desc">严格时间快照和查询历史输入六路召回，经来源均衡的 Top100 候选融合，生成 49 维特征并由统一 LambdaRank 排序，输出点击、加购和购买 Top20。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" class="arrow-head"/>
+    </marker>
+  </defs>
+  <style>
+    :root { color-scheme: light dark; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; fill: #1f2328; }
+    .title { font-size: 24px; font-weight: 600; }
+    .section { font-size: 15px; font-weight: 600; }
+    .node-title { font-size: 15px; font-weight: 600; }
+    .node-subtitle { font-size: 12px; fill: #59636e; }
+    .caption { font-size: 13px; fill: #59636e; }
+    .node { stroke: #8c959f; stroke-width: 1.2; fill: #ffffff; }
+    .input { fill: #eff6ff; stroke: #3b82f6; }
+    .popular { fill: #fff7ed; stroke: #f59e0b; }
+    .traditional { fill: #f0fdf4; stroke: #22c55e; }
+    .dssm { fill: #f5f3ff; stroke: #8b5cf6; }
+    .fusion { fill: #eef2ff; stroke: #6366f1; }
+    .feature { fill: #ecfeff; stroke: #06b6d4; }
+    .ranker { fill: #fdf2f8; stroke: #ec4899; }
+    .output { fill: #f0fdf4; stroke: #16a34a; }
+    .flow { stroke: #59636e; stroke-width: 1.7; fill: none; marker-end: url(#arrow); }
+    .bus { stroke: #8c959f; stroke-width: 1.4; fill: none; }
+    .arrow-head { fill: #59636e; }
+    .boundary { stroke: #d0d7de; stroke-width: 1; stroke-dasharray: 5 5; fill: none; }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+      .node-subtitle, .caption { fill: #9da7b3; }
+      .node { fill: #161b22; stroke: #6e7681; }
+      .input { fill: #0d2847; stroke: #60a5fa; }
+      .popular { fill: #3a2508; stroke: #fbbf24; }
+      .traditional { fill: #0d2d1b; stroke: #4ade80; }
+      .dssm { fill: #27194b; stroke: #a78bfa; }
+      .fusion { fill: #1e2454; stroke: #818cf8; }
+      .feature { fill: #083344; stroke: #22d3ee; }
+      .ranker { fill: #4a1634; stroke: #f472b6; }
+      .output { fill: #0d2d1b; stroke: #4ade80; }
+      .flow, .bus { stroke: #9da7b3; }
+      .arrow-head { fill: #9da7b3; }
+      .boundary { stroke: #30363d; }
+    }
+  </style>
+
+  <text class="title" x="600" y="38" text-anchor="middle">六路召回与统一排序流程</text>
+
+  <rect class="node input" x="120" y="70" width="260" height="76" rx="10"/>
+  <text class="node-title" x="250" y="101" text-anchor="middle">严格时间快照</text>
+  <text class="node-subtitle" x="250" y="124" text-anchor="middle">Popular / CoVis / DSSM / Item 统计</text>
+
+  <rect class="node input" x="820" y="70" width="260" height="76" rx="10"/>
+  <text class="node-title" x="950" y="101" text-anchor="middle">Session Query History</text>
+  <text class="node-subtitle" x="950" y="124" text-anchor="middle">按时间排序的前 80% 行为</text>
+
+  <path class="bus" d="M250 146 V178 H950 V146"/>
+  <path class="flow" d="M600 178 V242"/>
+  <text class="section" x="600" y="218" text-anchor="middle">六路召回</text>
+
+  <rect class="boundary" x="55" y="245" width="1090" height="170" rx="12"/>
+
+  <g>
+    <rect class="node popular" x="75" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="155" y="303" text-anchor="middle">Popular</text>
+    <text class="node-subtitle" x="155" y="326" text-anchor="middle">分目标热度</text>
+    <text class="node-subtitle" x="155" y="346" text-anchor="middle">冷启动与候选补齐</text>
+
+    <rect class="node traditional" x="253" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="333" y="303" text-anchor="middle">Revisit</text>
+    <text class="node-subtitle" x="333" y="326" text-anchor="middle">频次 × 行为权重</text>
+    <text class="node-subtitle" x="333" y="346" text-anchor="middle">× 近期衰减</text>
+
+    <rect class="node traditional" x="431" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="511" y="303" text-anchor="middle">Type-CoVis</text>
+    <text class="node-subtitle" x="511" y="326" text-anchor="middle">行为类型加权</text>
+    <text class="node-subtitle" x="511" y="346" text-anchor="middle">Top200 商品邻居</text>
+
+    <rect class="node traditional" x="609" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="689" y="303" text-anchor="middle">Buy2Buy</text>
+    <text class="node-subtitle" x="689" y="326" text-anchor="middle">Cart / Order 共现</text>
+    <text class="node-subtitle" x="689" y="346" text-anchor="middle">高意图商品关联</text>
+
+    <rect class="node traditional" x="787" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="867" y="303" text-anchor="middle">Time-CoVis</text>
+    <text class="node-subtitle" x="867" y="326" text-anchor="middle">24 小时窗口</text>
+    <text class="node-subtitle" x="867" y="346" text-anchor="middle">时间差指数衰减</text>
+
+    <rect class="node dssm" x="965" y="270" width="160" height="105" rx="9"/>
+    <text class="node-title" x="1045" y="303" text-anchor="middle">Attention DSSM</text>
+    <text class="node-subtitle" x="1045" y="326" text-anchor="middle">目标条件化表示</text>
+    <text class="node-subtitle" x="1045" y="346" text-anchor="middle">FAISS FlatIP</text>
+  </g>
+
+  <path class="bus" d="M155 375 V430 M333 375 V430 M511 375 V430 M689 375 V430 M867 375 V430 M1045 375 V430 M155 430 H1045"/>
+  <path class="flow" d="M600 430 V488"/>
+
+  <rect class="node fusion" x="300" y="490" width="600" height="86" rx="11"/>
+  <text class="node-title" x="600" y="520" text-anchor="middle">Source-balanced Candidate Fusion · Top100</text>
+  <text class="node-subtitle" x="600" y="544" text-anchor="middle">五路个性化结果 Round-robin → 去重 → Popular 补齐 → 回填六路 score / rank / flag</text>
+
+  <path class="flow" d="M600 576 V648"/>
+
+  <rect class="node feature" x="275" y="650" width="650" height="86" rx="11"/>
+  <text class="node-title" x="600" y="680" text-anchor="middle">49 维 Point-in-time Features</text>
+  <text class="node-subtitle" x="600" y="704" text-anchor="middle">Base · Session · Item · Recall Source · Interaction · Temporal</text>
+
+  <path class="flow" d="M600 736 V808"/>
+
+  <rect class="node ranker" x="395" y="810" width="410" height="66" rx="11"/>
+  <text class="node-title" x="600" y="837" text-anchor="middle">Unified LightGBM LambdaRank</text>
+  <text class="node-subtitle" x="600" y="858" text-anchor="middle">按 (session, target_type) 分组排序</text>
+
+  <path class="bus" d="M600 876 V930 H280 M600 930 H920"/>
+  <path class="flow" d="M280 930 V988"/>
+  <path class="flow" d="M600 930 V988"/>
+  <path class="flow" d="M920 930 V988"/>
+
+  <rect class="node output" x="180" y="990" width="200" height="42" rx="8"/>
+  <rect class="node output" x="500" y="990" width="200" height="42" rx="8"/>
+  <rect class="node output" x="820" y="990" width="200" height="42" rx="8"/>
+  <text class="node-title" x="280" y="1017" text-anchor="middle">Click Recall@20 · 0.4489</text>
+  <text class="node-title" x="600" y="1017" text-anchor="middle">Cart Recall@20 · 0.6263</text>
+  <text class="node-title" x="920" y="1017" text-anchor="middle">Order Recall@20 · 0.8899</text>
+
+  <path class="bus" d="M280 1032 V1102"/>
+  <path class="bus" d="M600 1032 V1102"/>
+  <path class="bus" d="M920 1032 V1102"/>
+  <text class="caption" x="294" y="1072">× 0.1</text>
+  <text class="caption" x="614" y="1072">× 0.3</text>
+  <text class="caption" x="934" y="1072">× 0.6</text>
+  <path class="bus" d="M280 1102 H920"/>
+  <path class="flow" d="M600 1102 V1138"/>
+
+  <rect class="node fusion" x="410" y="1140" width="380" height="42" rx="8"/>
+  <text class="node-title" x="600" y="1167" text-anchor="middle">Weighted Recall@20 = 0.7667</text>
+</svg>

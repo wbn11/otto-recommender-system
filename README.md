@@ -25,38 +25,14 @@ Weighted Recall@20
 | Candidate Recall@100 | 0.5154 | 0.6707 | 0.9035 | **0.7948** |
 | LambdaRank Recall@20 | **0.4489** | **0.6263** | **0.8899** | **0.7667** |
 
+![Final-valid 候选覆盖与最终排序结果](docs/assets/final-results.svg)
+
 `Candidate Recall@100` 表示真实标签是否进入最终候选池，是精排能够达到的召回上界；
 `LambdaRank Recall@20` 表示候选经过排序后真正保留在前 20 位的结果。
 
 ## 2. 系统架构
 
-```text
-11 GB OTTO JSONL
-        │
-        ▼
-Streaming ingestion
-events Parquet + session metadata Parquet
-        │
-        ▼
-Point-in-time snapshots
-ranker_snapshot (ts < T1) / valid_snapshot (ts < T2)
-        │
-        ├──────── Popular / Revisit
-        ├──────── Type-CoVis / Buy2Buy / Time-CoVis
-        └──────── Target-aware Attention DSSM + FAISS FlatIP
-                         │
-                         ▼
-              Source-balanced Top100 fusion
-                         │
-                         ▼
-        49 point-in-time ranking features
-                         │
-                         ▼
-             Unified LightGBM LambdaRank
-                         │
-                         ▼
-             click / cart / order Top20
-```
+![六路召回与统一排序流程](docs/assets/system-overview.svg)
 
 两套快照使用完全相同的代码和配置：
 
@@ -261,6 +237,8 @@ source-balanced round-robin：按轮次从五路结果中依次取候选，去�
 | 50 | 0.4656 | 0.6336 | 0.8609 | 0.7532 |
 | 100 | **0.5154** | **0.6707** | **0.9035** | **0.7948** |
 
+![候选预算与 Candidate Recall](docs/assets/candidate-recall.svg)
+
 ## 7. 49 维特征与 LambdaRank
 
 训练和推理共用同一份版本化 feature registry，并在写入和读取时检查字段名称、顺序与类型。
@@ -298,6 +276,8 @@ ranking groups；内部训练/验证继续按 Session hash 做 9:1 划分，避�
 | Item | 45 | 0.74858512 | -0.00410280 |
 | Recall | 29 | 0.74765680 | -0.00503111 |
 | Interaction | 35 | 0.74296241 | -0.00972550 |
+
+![特征组消融带来的 NDCG 下降](docs/assets/feature-ablation.svg)
 
 所有特征组均带来正向增益，最终模型保留全部 49 维。Interaction 和 Recall 特征贡献最大，说明
 Session 内重复兴趣、近期商品关系以及多路召回的一致性是精排的主要信号。详细规则见
